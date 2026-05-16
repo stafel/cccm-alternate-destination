@@ -17,10 +17,10 @@
 
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\game\Assembly-CSharp.dll</HintPath>
+      <HintPath>../NOManaged/Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Mirage">
-      <HintPath>..\game\Mirage.dll</HintPath>
+      <HintPath>../NOManaged/Mirage.dll</HintPath>
     </Reference>
   </ItemGroup>
 
