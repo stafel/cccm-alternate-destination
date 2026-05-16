@@ -24,18 +24,26 @@ namespace AlteredDestination
         public static ConfigEntry<float> CruiseAltitude;
         public static ConfigEntry<bool> DirectNaval;
         public static ConfigEntry<float> SpreadRadius;
+        public static ConfigEntry<bool> DoJink;
+        public static ConfigEntry<bool> DoTopattack;
 
         private void Awake()
         {
             Instance = this;
 
-            CruiseAltitude = Config.Bind("General", "Cruise Altitude", 5f, new ConfigDescription("Target radar altitude for cruise missiles in meters. Lower altitude increases the risk of terrain collision.", new AcceptableValueRange<float>(1f, 10f)));
+            CruiseAltitude = Config.Bind("General", "Cruise Altitude", 5f, new ConfigDescription("Target radar altitude for cruise missiles in meters. Lower altitude increases the risk of terrain collision.", new AcceptableValueRange<float>(3f, 15f)));
             DirectNaval = Config.Bind("General", "Final approach against naval target", false, "Off (set as default) = Pop-up attack, On = Direct attack");
             SpreadRadius = Config.Bind("General", "Spread Radius", 15f, "Radius in meters to spread out missiles targeting the same location to prevent stacking.");
+            DoJink = Config.Bind("General", "Jinking maneuver in terminal approach", false, "Off (set as default) = No jink, On = Random jinking");
+            DoTopattack = Config.Bind("General", "Top attack popup maneuver in terminal approach", false, "Off (set as default) = No top attack, On = Top attack popup");
 
             var harmony = new Harmony("com.checkpointcharlie.cruisemissile");
             harmony.PatchAll();
             Logger.LogInfo("Checkpoint Charlie's Cruise Missile Mod Loaded!");
+
+            /*foreach (var f in AccessTools.GetFieldNames(typeof(OpticalSeekerCruiseMissile))) {
+                Logger.LogInfo(f);
+            }*/
         }
 
         public static void Log(string message)
@@ -44,7 +52,7 @@ namespace AlteredDestination
         }
     }
 
-    [HarmonyPatch(typeof(DynamicMap), "MapControls")]
+    /*[HarmonyPatch(typeof(DynamicMap), "MapControls")]
     public static class DynamicMap_MapControls_Patch
     {
         public static void Postfix(DynamicMap __instance)
@@ -55,7 +63,7 @@ namespace AlteredDestination
                 GlobalPosition cursorCoords;
                 if (__instance.TryGetCursorCoordinates(out cursorCoords))
                 {
-                    bool clearWaypoint = Input.GetKey(KeyCode.LeftShift);
+                    bool clearWaypoint = Input.GetKey(KeyCode.RightShift);
                     bool setAny = false;
 
                     // Terrain-Aware Waypoint: 
@@ -81,66 +89,66 @@ namespace AlteredDestination
                     {
                         if (baseIcon is UnitMapIcon unitIcon && unitIcon.unit is Missile missile)
                         {
+                            
                             AlteredDestinationPlugin.MissileWaypoints.Remove(missile);
 
-                            if (!clearWaypoint)
-                            {
-                                Unit closestEnemy = null;
-                                float closestDist = 100f; // 100m radius for the pillar scan
-
-                                foreach (Unit u in allUnits)
-                                {
-                                    if (u == null || u == missile || u.gameObject == null || !u.gameObject.activeInHierarchy) continue;
-                                    if (u.NetworkHQ == missile.NetworkHQ) continue;
-
-                                    GlobalPosition uPos = u.GlobalPosition();
-                                    
-                                    float dx = (float)(uPos.x - cursorCoords.x);
-                                    float dz = (float)(uPos.z - cursorCoords.z);
-                                    float dist2D = Mathf.Sqrt(dx * dx + dz * dz);
-
-                                    if (dist2D < closestDist)
-                                    {
-                                        closestDist = dist2D;
-                                        closestEnemy = u;
-                                    }
-                                }
-
-                                var data = new OverrideData()
-                                {
-                                    staticPos = cursorCoords,
-                                    targetUnit = closestEnemy
-                                };
-
-                                AlteredDestinationPlugin.MissileWaypoints.Add(missile, data);
-                                setAny = true;
-
-                                try
-                                {
-                                    FieldInfo targetField = AccessTools.Field(typeof(Missile), "target") ?? 
-                                                            AccessTools.Field(typeof(Missile), "lockedTarget");
-                                    
-                                    if (targetField != null)
-                                    {
-                                        targetField.SetValue(missile, closestEnemy); 
-                                    }
-
-                                    FieldInfo idField = AccessTools.Field(typeof(Missile), "_targetID");
-                                    if (idField != null && closestEnemy != null)
-                                    {
-                                        idField.SetValue(missile, closestEnemy.persistentID);
-                                    }
-                                }
-                                catch { }
-
-                                if (closestEnemy != null)
-                                {
-                                    AlteredDestinationPlugin.Log($"Missile retargeted dynamically to enemy unit: {closestEnemy.name}");
-                                }
-                            }
-                            else
+                            if (clearWaypoint)
                             {
                                 AlteredDestinationPlugin.Log("Waypoint cleared for missile.");
+                                break;
+                            }
+
+                            Unit closestEnemy = null;
+                            float closestDist = 100f; // 100m radius for the pillar scan
+
+                            foreach (Unit u in allUnits)
+                            {
+                                if (u == null || u == missile || u.gameObject == null || !u.gameObject.activeInHierarchy) continue;
+                                if (u.NetworkHQ == missile.NetworkHQ) continue;
+
+                                GlobalPosition uPos = u.GlobalPosition();
+                                
+                                float dx = (float)(uPos.x - cursorCoords.x);
+                                float dz = (float)(uPos.z - cursorCoords.z);
+                                float dist2D = Mathf.Sqrt(dx * dx + dz * dz);
+
+                                if (dist2D < closestDist)
+                                {
+                                    closestDist = dist2D;
+                                    closestEnemy = u;
+                                }
+                            }
+
+                            var data = new OverrideData()
+                            {
+                                staticPos = cursorCoords,
+                                targetUnit = closestEnemy
+                            };
+
+                            AlteredDestinationPlugin.MissileWaypoints.Add(missile, data);
+                            setAny = true;
+
+                            try
+                            {
+                                FieldInfo targetField = AccessTools.Field(typeof(Missile), "target") ?? 
+                                                        AccessTools.Field(typeof(Missile), "lockedTarget");
+                                
+                                if (targetField != null)
+                                {
+                                    targetField.SetValue(missile, closestEnemy); 
+                                }
+
+                                FieldInfo idField = AccessTools.Field(typeof(Missile), "_targetID");
+                                if (idField != null && closestEnemy != null)
+                                {
+                                    idField.SetValue(missile, closestEnemy.persistentID);
+                                }
+                            }
+                            catch { }
+
+                            if (closestEnemy != null)
+                            {
+                                AlteredDestinationPlugin.Log($"Missile retargeted dynamically to enemy unit: {closestEnemy.name}");
                             }
                         }
                     }
@@ -152,7 +160,7 @@ namespace AlteredDestination
                 }
             }
         }
-    }
+    }*/
 
     [HarmonyPatch(typeof(Missile), "SetAimpoint")]
     public static class Missile_SetAimpoint_Patch
@@ -327,33 +335,37 @@ namespace AlteredDestination
                     // Using neuteredSeekersCache guarantees this heavy reflection only runs ONCE per missile!
                     if (!neuteredSeekersCache.TryGetValue(cSeeker, out _))
                     {
-                        if (topAttackField != null)
-                        {
-                            var top = topAttackField.GetValue(cSeeker);
-                            if (top != null)
+                        if (!AlteredDestinationPlugin.DoTopattack.Value) {
+                            if (topAttackField != null)
                             {
-                                if (topAttackAmountField == null) topAttackAmountField = AccessTools.Field(top.GetType(), "amount") ?? AccessTools.Field(top.GetType(), "Amount");
-                                if (topAttackActiveField == null) topAttackActiveField = AccessTools.Field(top.GetType(), "active") ?? AccessTools.Field(top.GetType(), "Active");
-                                
-                                if (topAttackAmountField != null) topAttackAmountField.SetValue(top, 0f);
-                                if (topAttackActiveField != null) topAttackActiveField.SetValue(top, false);
-                                
-                                topAttackField.SetValue(cSeeker, top); 
+                                var top = topAttackField.GetValue(cSeeker);
+                                if (top != null)
+                                {
+                                    if (topAttackAmountField == null) topAttackAmountField = AccessTools.Field(top.GetType(), "amount") ?? AccessTools.Field(top.GetType(), "Amount");
+                                    if (topAttackActiveField == null) topAttackActiveField = AccessTools.Field(top.GetType(), "active") ?? AccessTools.Field(top.GetType(), "Active");
+                                    
+                                    if (topAttackAmountField != null) topAttackAmountField.SetValue(top, 0f);
+                                    if (topAttackActiveField != null) topAttackActiveField.SetValue(top, false);
+                                    
+                                    topAttackField.SetValue(cSeeker, top); 
+                                }
                             }
                         }
 
-                        if (jinkField != null)
-                        {
-                            var jink = jinkField.GetValue(cSeeker);
-                            if (jink != null)
+                        if (!AlteredDestinationPlugin.DoJink.Value) {
+                            if (jinkField != null)
                             {
-                                if (jinkAmountField == null) jinkAmountField = AccessTools.Field(jink.GetType(), "amount") ?? AccessTools.Field(jink.GetType(), "Amount");
-                                if (jinkActiveField == null) jinkActiveField = AccessTools.Field(jink.GetType(), "active") ?? AccessTools.Field(jink.GetType(), "Active");
-                                
-                                if (jinkAmountField != null) jinkAmountField.SetValue(jink, 0f);
-                                if (jinkActiveField != null) jinkActiveField.SetValue(jink, false);
-                                
-                                jinkField.SetValue(cSeeker, jink); 
+                                var jink = jinkField.GetValue(cSeeker);
+                                if (jink != null)
+                                {
+                                    if (jinkAmountField == null) jinkAmountField = AccessTools.Field(jink.GetType(), "amount") ?? AccessTools.Field(jink.GetType(), "Amount");
+                                    if (jinkActiveField == null) jinkActiveField = AccessTools.Field(jink.GetType(), "active") ?? AccessTools.Field(jink.GetType(), "Active");
+                                    
+                                    if (jinkAmountField != null) jinkAmountField.SetValue(jink, 0f);
+                                    if (jinkActiveField != null) jinkActiveField.SetValue(jink, false);
+                                    
+                                    jinkField.SetValue(cSeeker, jink); 
+                                }
                             }
                         }
                         
@@ -362,7 +374,7 @@ namespace AlteredDestination
                 }
 
                 // ALWAYS ENFORCE CRUISE RADAR (Both phases)
-                altitudeTargetField.SetValue(cSeeker, AlteredDestinationPlugin.CruiseAltitude.Value);
+                //altitudeTargetField.SetValue(cSeeker, AlteredDestinationPlugin.CruiseAltitude.Value);
 
                 Unit targetUnit = (Unit)seekerTargetField.GetValue(cSeeker) ?? (Unit)missileTargetField.GetValue(__instance);
                 bool isShip = IsShip(targetUnit);
@@ -449,11 +461,17 @@ namespace AlteredDestination
     public static class OpticalSeekerCruiseMissile_Initialize_Patch
     {
         private static FieldInfo altField = AccessTools.Field(typeof(OpticalSeekerCruiseMissile), "altitudeTarget");
+        //private static FieldInfo infoField = AccessTools.Field(typeof(Missile), "info");
 
         public static void Postfix(OpticalSeekerCruiseMissile __instance)
         {
+            if (altField == null) return;
+
+            //AlteredDestinationPlugin.Log(((float)altField.GetValue(__instance)).ToString());
+            if ((float)altField.GetValue(__instance) > 20.0f) return; // ignore high flying cruise missiles like HASM
+
             // Enforce default Cruise parameters at spawn.
-            if (altField != null) altField.SetValue(__instance, AlteredDestinationPlugin.CruiseAltitude.Value);
+            altField.SetValue(__instance, AlteredDestinationPlugin.CruiseAltitude.Value);
         }
     }
 }
