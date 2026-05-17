@@ -110,14 +110,18 @@ namespace AlteredDestination
                 else knots[i] = i - degree;
             }
 
-            int sampleCount = Mathf.Max(controlWaypoints.Count, Mathf.CeilToInt(maxT * Mathf.Max(MinSplineSamplesPerSpan, samplesPerSpan)) + 1);
+            int effectiveSamplesPerSpan = Mathf.Max(MinSplineSamplesPerSpan, samplesPerSpan);
+            int sampleCount = Mathf.Max(controlWaypoints.Count, Mathf.CeilToInt(maxT * effectiveSamplesPerSpan) + 1);
             Vector3? lastAdded = null;
 
             for (int s = 0; s < sampleCount; s++)
             {
                 float t = maxT * s / (sampleCount - 1);
                 Vector3 p = EvaluateBSplinePoint(controlPoints, knots, degree, t);
-                if (!lastAdded.HasValue || (p - lastAdded.Value).sqrMagnitude >= MinSplinePointSpacingSq || s == sampleCount - 1)
+                bool isFirstSample = !lastAdded.HasValue;
+                bool isLastSample = s == sampleCount - 1;
+                bool hasMinimumSpacing = isFirstSample || (p - lastAdded.Value).sqrMagnitude >= MinSplinePointSpacingSq;
+                if (hasMinimumSpacing || isLastSample)
                 {
                     result.Add(ToGlobalPosition(p));
                     lastAdded = p;
@@ -135,8 +139,8 @@ namespace AlteredDestination
         {
             int n = controlPoints.Length - 1;
             float maxT = knots[n + 1];
-            if (t >= maxT) t = maxT - SplineParameterEpsilon;
-            if (t < knots[degree]) t = knots[degree];
+            float maxSampleT = Mathf.Max(knots[degree], maxT - SplineParameterEpsilon);
+            t = Mathf.Clamp(t, knots[degree], maxSampleT);
 
             int k = degree;
             for (int i = degree; i <= n; i++)
