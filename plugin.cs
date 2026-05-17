@@ -13,7 +13,9 @@ namespace AlteredDestination
     public class OverrideData
     {
         public List<GlobalPosition> waypoints;
+        public List<GlobalPosition> splineWaypoints;
         public int currentWaypoint;
+        public bool loggedFinalSplineWaypoint;
     }
 
     [BepInPlugin("com.checkpointcharlie.cruisemissile", "Checkpoint Charlie's Cruise Missile (Alternate destination)", "1.0.0")]
@@ -27,6 +29,8 @@ namespace AlteredDestination
         public static ConfigEntry<bool> DoJink;
         public static ConfigEntry<bool> DoTopattack;
         public static ConfigEntry<float> WaypointRadius;
+
+        private const int SplineSamplesPerSpan = 10;
 
         private void Awake()
         {
@@ -51,6 +55,120 @@ namespace AlteredDestination
         public static void Log(string message)
         {
             Instance.Logger.LogInfo(message);
+        }
+
+        public static void RebuildSplineWaypoints(OverrideData data, float progress01 = 0f)
+        {
+            if (data == null) return;
+
+            data.splineWaypoints = GenerateBSplineWaypoints(data.waypoints, SplineSamplesPerSpan);
+            data.loggedFinalSplineWaypoint = false;
+
+            if (data.splineWaypoints == null || data.splineWaypoints.Count == 0)
+            {
+                data.currentWaypoint = 0;
+                return;
+            }
+
+            data.currentWaypoint = Mathf.Clamp(Mathf.RoundToInt(progress01 * (data.splineWaypoints.Count - 1)), 0, data.splineWaypoints.Count - 1);
+        }
+
+        private static List<GlobalPosition> GenerateBSplineWaypoints(List<GlobalPosition> controlWaypoints, int samplesPerSpan)
+        {
+            List<GlobalPosition> result = new List<GlobalPosition>();
+            if (controlWaypoints == null || controlWaypoints.Count == 0) return result;
+            if (controlWaypoints.Count == 1)
+            {
+                result.Add(controlWaypoints[0]);
+                return result;
+            }
+
+            int n = controlWaypoints.Count - 1;
+            int degree = Mathf.Min(3, n);
+            if (degree <= 0)
+            {
+                result.AddRange(controlWaypoints);
+                return result;
+            }
+
+            Vector3[] controlPoints = new Vector3[controlWaypoints.Count];
+            for (int i = 0; i < controlWaypoints.Count; i++)
+            {
+                controlPoints[i] = new Vector3((float)controlWaypoints[i].x, (float)controlWaypoints[i].y, (float)controlWaypoints[i].z);
+            }
+
+            float[] knots = new float[n + degree + 2];
+            float maxT = n - degree + 1;
+
+            for (int i = 0; i < knots.Length; i++)
+            {
+                if (i <= degree) knots[i] = 0f;
+                else if (i >= n + 1) knots[i] = maxT;
+                else knots[i] = i - degree;
+            }
+
+            int sampleCount = Mathf.Max(controlWaypoints.Count, Mathf.CeilToInt(maxT * Mathf.Max(2, samplesPerSpan)) + 1);
+            const float minPointSpacingSq = 1f;
+            Vector3? lastAdded = null;
+
+            for (int s = 0; s < sampleCount; s++)
+            {
+                float t = maxT * s / (sampleCount - 1);
+                Vector3 p = EvaluateBSplinePoint(controlPoints, knots, degree, t);
+                if (!lastAdded.HasValue || (p - lastAdded.Value).sqrMagnitude >= minPointSpacingSq || s == sampleCount - 1)
+                {
+                    result.Add(ToGlobalPosition(p));
+                    lastAdded = p;
+                }
+            }
+
+            return result;
+        }
+
+        private static Vector3 EvaluateBSplinePoint(Vector3[] controlPoints, float[] knots, int degree, float t)
+        {
+            int n = controlPoints.Length - 1;
+            float maxT = knots[n + 1];
+            if (t >= maxT) t = maxT - 0.0001f;
+            if (t < knots[degree]) t = knots[degree];
+
+            int k = degree;
+            for (int i = degree; i <= n; i++)
+            {
+                if (t >= knots[i] && t < knots[i + 1])
+                {
+                    k = i;
+                    break;
+                }
+            }
+
+            Vector3[] d = new Vector3[degree + 1];
+            for (int j = 0; j <= degree; j++)
+            {
+                d[j] = controlPoints[k - degree + j];
+            }
+
+            for (int r = 1; r <= degree; r++)
+            {
+                for (int j = degree; j >= r; j--)
+                {
+                    int knotIndex = k - degree + j;
+                    float denom = knots[knotIndex + degree - r + 1] - knots[knotIndex];
+                    float alpha = denom <= 0f ? 0f : (t - knots[knotIndex]) / denom;
+                    d[j] = (1f - alpha) * d[j - 1] + alpha * d[j];
+                }
+            }
+
+            return d[degree];
+        }
+
+        private static GlobalPosition ToGlobalPosition(Vector3 p)
+        {
+            GlobalPosition g = default;
+            g.x = p.x;
+            g.y = p.y;
+            g.z = p.z;
+            return g;
         }
     }
 
@@ -135,10 +253,16 @@ namespace AlteredDestination
                                 data = new OverrideData()
                                 {
                                     waypoints = new List<GlobalPosition>(){cursorCoords},
+                                    splineWaypoints = new List<GlobalPosition>(){cursorCoords},
                                     currentWaypoint = 0
                                 };
+                                AlteredDestinationPlugin.RebuildSplineWaypoints(data);
                             } else {
+                                float progress01 = data.splineWaypoints != null && data.splineWaypoints.Count > 1
+                                    ? (float)data.currentWaypoint / (data.splineWaypoints.Count - 1)
+                                    : 0f;
                                 data.waypoints.Add(cursorCoords);
+                                AlteredDestinationPlugin.RebuildSplineWaypoints(data, progress01);
                             }
 
                             if (!setAny)
@@ -372,22 +496,32 @@ namespace AlteredDestination
             if ((hasManualWaypoint) && (!isTerminal))
             {
                 GlobalPosition dest;
-                Vector3 newTargetVel = Vector3.zero;
-
-                dest = data.waypoints[data.currentWaypoint];
+                if (data.splineWaypoints == null || data.splineWaypoints.Count == 0)
+                {
+                    AlteredDestinationPlugin.RebuildSplineWaypoints(data);
+                }
+                if (data.splineWaypoints == null || data.splineWaypoints.Count == 0)
+                {
+                    return true;
+                }
+                data.currentWaypoint = Mathf.Clamp(data.currentWaypoint, 0, data.splineWaypoints.Count - 1);
+                dest = data.splineWaypoints[data.currentWaypoint];
 
                 // check to advance waypoint
                 GlobalPosition currentPos = __instance.GlobalPosition();
-                float dx = (float)(currentPos.x - dest.x);
-                float dz = (float)(currentPos.z - dest.z);
-                if (Mathf.Sqrt(dx * dx + dz * dz) < AlteredDestinationPlugin.WaypointRadius.Value) {
+                while (data.currentWaypoint < data.splineWaypoints.Count - 1)
+                {
+                    dest = data.splineWaypoints[data.currentWaypoint];
+                    float dx = (float)(currentPos.x - dest.x);
+                    float dz = (float)(currentPos.z - dest.z);
+                    if (Mathf.Sqrt(dx * dx + dz * dz) >= AlteredDestinationPlugin.WaypointRadius.Value) break;
                     data.currentWaypoint++;
-                    if (data.currentWaypoint >= data.waypoints.Count)
-                    {
-                        AlteredDestinationPlugin.Log($"Missile reached final destination no terminal seeker activation");
-                        data.currentWaypoint = data.waypoints.Count - 1;
-                    }
-                    dest = data.waypoints[data.currentWaypoint];
+                }
+                dest = data.splineWaypoints[data.currentWaypoint];
+                if (data.currentWaypoint >= data.splineWaypoints.Count - 1 && !data.loggedFinalSplineWaypoint)
+                {
+                    AlteredDestinationPlugin.Log($"Missile reached final destination no terminal seeker activation");
+                    data.loggedFinalSplineWaypoint = true;
                 }
 
                 aimPoint.x = dest.x;
