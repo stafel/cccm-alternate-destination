@@ -31,6 +31,9 @@ namespace AlteredDestination
         public static ConfigEntry<float> WaypointRadius;
 
         private const int SplineSamplesPerSpan = 10;
+        private const int MinSplineSamplesPerSpan = 2;
+        private const float MinSplinePointSpacingSq = 1f;
+        private const float SplineParameterEpsilon = 0.0001f;
 
         private void Awake()
         {
@@ -107,19 +110,22 @@ namespace AlteredDestination
                 else knots[i] = i - degree;
             }
 
-            int sampleCount = Mathf.Max(controlWaypoints.Count, Mathf.CeilToInt(maxT * Mathf.Max(2, samplesPerSpan)) + 1);
-            const float minPointSpacingSq = 1f;
+            int sampleCount = Mathf.Max(controlWaypoints.Count, Mathf.CeilToInt(maxT * Mathf.Max(MinSplineSamplesPerSpan, samplesPerSpan)) + 1);
             Vector3? lastAdded = null;
 
             for (int s = 0; s < sampleCount; s++)
             {
                 float t = maxT * s / (sampleCount - 1);
                 Vector3 p = EvaluateBSplinePoint(controlPoints, knots, degree, t);
-                if (!lastAdded.HasValue || (p - lastAdded.Value).sqrMagnitude >= minPointSpacingSq || s == sampleCount - 1)
+                if (!lastAdded.HasValue || (p - lastAdded.Value).sqrMagnitude >= MinSplinePointSpacingSq || s == sampleCount - 1)
                 {
                     result.Add(ToGlobalPosition(p));
                     lastAdded = p;
                 }
+            }
+            if (result.Count > 0)
+            {
+                result[result.Count - 1] = controlWaypoints[controlWaypoints.Count - 1];
             }
 
             return result;
@@ -129,7 +135,7 @@ namespace AlteredDestination
         {
             int n = controlPoints.Length - 1;
             float maxT = knots[n + 1];
-            if (t >= maxT) t = maxT - 0.0001f;
+            if (t >= maxT) t = maxT - SplineParameterEpsilon;
             if (t < knots[degree]) t = knots[degree];
 
             int k = degree;
