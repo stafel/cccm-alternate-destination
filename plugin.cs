@@ -23,10 +23,10 @@ namespace AlteredDestination
         public static AlteredDestinationPlugin Instance;
         public static ConfigEntry<float> CruiseAltitude;
         public static ConfigEntry<float> MinimumAltitude;
-        public static ConfigEntry<bool> DirectNaval;
         public static ConfigEntry<float> SpreadRadius;
         public static ConfigEntry<bool> DoJink;
         public static ConfigEntry<bool> DoTopattack;
+        public static ConfigEntry<float> WaypointRadius;
 
         private void Awake()
         {
@@ -34,10 +34,10 @@ namespace AlteredDestination
 
             CruiseAltitude = Config.Bind("General", "Cruise Altitude", 5f, new ConfigDescription("Target radar altitude for cruise missiles in meters. Lower altitude increases the risk of terrain collision.", new AcceptableValueRange<float>(3f, 15f)));
             MinimumAltitude = Config.Bind("General", "Minimum Altitude", 3f, new ConfigDescription("Minimum radar altitude for cruise missiles in meters before an emergency pullup.", new AcceptableValueRange<float>(1f, 3f)));
-            //DirectNaval = Config.Bind("General", "Final approach against naval target", false, "Off (set as default) = Pop-up attack, On = Direct attack");
             SpreadRadius = Config.Bind("General", "Spread Radius", 15f, "Radius in meters to spread out missiles targeting the same location to prevent stacking.");
             DoJink = Config.Bind("General", "Jinking maneuver in terminal approach", false, "Off (set as default) = No jink, On = Random jinking");
             DoTopattack = Config.Bind("General", "Top attack popup maneuver in terminal approach", false, "Off (set as default) = No top attack, On = Top attack popup");
+            WaypointRadius = Config.Bind("General", "Waypoint radius", 50f, new ConfigDescription("Distance to waypoint to switch to next one", new AcceptableValueRange<float>(10f, 200f)));
 
             var harmony = new Harmony("com.checkpointcharlie.cruisemissile");
             harmony.PatchAll();
@@ -86,6 +86,7 @@ namespace AlteredDestination
                     cursorCoords.y = terrainHeight;
 
                     Unit[] allUnits = UnityEngine.Object.FindObjectsOfType<Unit>();
+                    FieldInfo seekerField = AccessTools.Field(typeof(Missile), "seeker");
 
                     foreach (var baseIcon in __instance.selectedIcons)
                     {
@@ -127,43 +128,51 @@ namespace AlteredDestination
                                 }
                             }
 
-                            var data = new OverrideData()
-                            {
-                                staticPos = cursorCoords,
-                                targetUnit = closestEnemy
-                            };
+                            OverrideData data;
+                            bool hasValue = AlteredDestinationPlugin.MissileWaypoints.TryGetValue(missile, out data);
 
-                            AlteredDestinationPlugin.MissileWaypoints.Add(missile, data);
-                            setAny = true;
-
-                            try
-                            {
-                                FieldInfo targetField = AccessTools.Field(typeof(Missile), "target") ?? 
-                                                        AccessTools.Field(typeof(Missile), "lockedTarget");
-                                
-                                if (targetField != null)
+                            if (!hasValue) {
+                                data = new OverrideData()
                                 {
-                                    targetField.SetValue(missile, closestEnemy); 
-                                }
-
-                                FieldInfo idField = AccessTools.Field(typeof(Missile), "_targetID");
-                                if (idField != null && closestEnemy != null)
-                                {
-                                    idField.SetValue(missile, closestEnemy.persistentID);
-                                }
+                                    waypoints = new List<GlobalPosition>(){cursorCoords},
+                                    currentWaypoint = 0
+                                };
+                            } else {
+                                data.waypoints.Add(cursorCoords);
                             }
-                            catch { }
 
-                            if (closestEnemy != null)
+                            if (!setAny)
                             {
-                                AlteredDestinationPlugin.Log($"Missile retargeted dynamically to enemy unit: {closestEnemy.name}");
+                                setAny = true;
+                                AlteredDestinationPlugin.Log("Waypoint assigned to selected missile(s) at " + cursorCoords.ToString());
+                            }
+
+                            if (closestEnemy != null) {
+                                //try
+                                //{
+                                    FieldInfo targetField = AccessTools.Field(typeof(Missile), "target") ?? 
+                                                            AccessTools.Field(typeof(Missile), "lockedTarget");
+                                    
+                                    if (targetField != null)
+                                    {
+                                        targetField.SetValue(missile, closestEnemy); 
+                                    }
+
+                                    FieldInfo idField = AccessTools.Field(typeof(Missile), "_targetID");
+                                    if (idField != null)
+                                    {
+                                        idField.SetValue(missile, closestEnemy.persistentID);
+                                    }
+
+                                    AlteredDestinationPlugin.Log($"Missile retargeted dynamically to enemy unit: {closestEnemy.name}");
+                                //}
+                                //catch { }
+                            }
+
+                            if (!hasValue) {
+                                AlteredDestinationPlugin.MissileWaypoints.Add(missile, data);
                             }
                         }
-                    }
-
-                    if (setAny)
-                    {
-                        AlteredDestinationPlugin.Log("Waypoint assigned to selected missile(s) at " + cursorCoords.ToString());
                     }
                 }
             }
@@ -359,56 +368,33 @@ namespace AlteredDestination
 
             ApplyCounterPitch(__instance);
 
-            /*// 2. MOD LOGIC: Manual Waypoint Override
-            if (hasManualWaypoint)
+            // 2. MOD LOGIC: Manual Waypoint Override
+            if ((hasManualWaypoint) && (!isTerminal))
             {
                 GlobalPosition dest;
                 Vector3 newTargetVel = Vector3.zero;
 
-                if (data.targetUnit != null && !data.targetUnit.disabled && data.targetUnit.gameObject.activeInHierarchy)
-                {
-                    dest = data.targetUnit.GlobalPosition();
-                    if (data.targetUnit.rb != null) 
+                dest = data.waypoints[data.currentWaypoint];
+
+                // check to advance waypoint
+                GlobalPosition currentPos = __instance.GlobalPosition();
+                float dx = (float)(currentPos.x - dest.x);
+                float dz = (float)(currentPos.z - dest.z);
+                if (Mathf.Sqrt(dx * dx + dz * dz) < AlteredDestinationPlugin.WaypointRadius.Value) {
+                    data.currentWaypoint++;
+                    if (data.currentWaypoint >= data.waypoints.Count)
                     {
-                        newTargetVel = data.targetUnit.rb.velocity;
-                        newTargetVel.y = 0f; 
+                        AlteredDestinationPlugin.Log($"Missile reached final destination no terminal seeker activation");
+                        data.currentWaypoint = data.waypoints.Count - 1;
                     }
-                }
-                else
-                {
-                    dest = data.staticPos;
+                    dest = data.waypoints[data.currentWaypoint];
                 }
 
-                // Determine terminal status for non-cruise missiles (which lack cSeeker)
-                bool terminalOverride = isTerminal;
-                if (cSeeker == null)
-                {
-                    GlobalPosition currentPos = __instance.GlobalPosition();
-                    float dx = (float)(currentPos.x - dest.x);
-                    float dz = (float)(currentPos.z - dest.z);
-                    if (Mathf.Sqrt(dx * dx + dz * dz) < 3000f) terminalOverride = true;
-                }
-
-                if (terminalOverride)
-                {
-                    // TERMINAL PHASE: Apply the full custom flight behavior (spread + direct strike + speed inheritance)
-                    aimPoint.x = dest.x + offsetX;
-                    aimPoint.z = dest.z + offsetZ;
-                    aimPoint.y = __instance.GlobalPosition().y;
-                    targetVel = newTargetVel;
-
-                    // Engage absolute physics lock against pop-up behavior + height failsafe
-                    ApplyCounterPitch(__instance);
-                }
-                else if (data.targetUnit == null)
-                {
-                    // CRUISE PHASE (Static Map Coordinate):
-                    aimPoint.x = dest.x;
-                    aimPoint.z = dest.z;
-                    // Leave Y completely vanilla so the cruise radar can keep it safely above the water.
-                    targetVel = Vector3.zero;
-                }
-            }*/
+                aimPoint.x = dest.x;
+                aimPoint.z = dest.z;
+                // Leave Y completely vanilla so the cruise radar can keep it safely above the water.
+                targetVel = Vector3.zero;
+            }
             
             return true;
         }
