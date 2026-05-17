@@ -14,6 +14,8 @@ namespace AlteredDestination
     {
         public List<GlobalPosition> waypoints;
         public int currentWaypoint;
+        public Unit targetUnit;
+        public int midpointCounter;
     }
 
     [BepInPlugin("com.checkpointcharlie.cruisemissile", "Checkpoint Charlie's Cruise Missile (Alternate destination)", "1.0.0")]
@@ -27,6 +29,8 @@ namespace AlteredDestination
         public static ConfigEntry<bool> DoJink;
         public static ConfigEntry<bool> DoTopattack;
         public static ConfigEntry<float> WaypointRadius;
+        public static ConfigEntry<int> PreWaypointCounter;
+        public static ConfigEntry<bool> DebugOutput;
 
         private void Awake()
         {
@@ -38,6 +42,8 @@ namespace AlteredDestination
             DoJink = Config.Bind("General", "Jinking maneuver in terminal approach", false, "Off (set as default) = No jink, On = Random jinking");
             DoTopattack = Config.Bind("General", "Top attack popup maneuver in terminal approach", false, "Off (set as default) = No top attack, On = Top attack popup");
             WaypointRadius = Config.Bind("General", "Waypoint radius", 50f, new ConfigDescription("Distance to waypoint to switch to next one", new AcceptableValueRange<float>(10f, 200f)));
+            PreWaypointCounter = Config.Bind("General", "Pre Waypoint", 5, new ConfigDescription("pre pitch", new AcceptableValueRange<int>(0, 10)));
+            DebugOutput = Config.Bind("General", "Debug logging", true);
 
             var harmony = new Harmony("com.checkpointcharlie.cruisemissile");
             harmony.PatchAll();
@@ -51,6 +57,12 @@ namespace AlteredDestination
         public static void Log(string message)
         {
             Instance.Logger.LogInfo(message);
+        }
+        public static void Debug(string message)
+        {
+            if (DebugOutput.Value) {
+                Instance.Logger.LogDebug(message);
+            }
         }
     }
 
@@ -135,10 +147,15 @@ namespace AlteredDestination
                                 data = new OverrideData()
                                 {
                                     waypoints = new List<GlobalPosition>(){cursorCoords},
-                                    currentWaypoint = 0
+                                    currentWaypoint = 0,
+                                    targetUnit = closestEnemy,
+                                    midpointCounter = 0
                                 };
                             } else {
                                 data.waypoints.Add(cursorCoords);
+                                if (closestEnemy != null) {
+                                    data.targetUnit = closestEnemy;
+                                }
                             }
 
                             if (!setAny)
@@ -335,8 +352,8 @@ namespace AlteredDestination
                         var top = topAttackField.GetValue(cSeeker);
                         if (top != null)
                         {
-                            if (topAttackAmountField == null) topAttackAmountField = AccessTools.Field(top.GetType(), "amount") ?? AccessTools.Field(top.GetType(), "Amount");
-                            if (topAttackActiveField == null) topAttackActiveField = AccessTools.Field(top.GetType(), "active") ?? AccessTools.Field(top.GetType(), "Active");
+                            if (topAttackAmountField == null) topAttackAmountField = AccessTools.Field(top.GetType(), "Amount");
+                            if (topAttackActiveField == null) topAttackActiveField = AccessTools.Field(top.GetType(), "Active");
                             
                             if (topAttackAmountField != null) topAttackAmountField.SetValue(top, 0f);
                             if (topAttackActiveField != null) topAttackActiveField.SetValue(top, false);
@@ -352,11 +369,11 @@ namespace AlteredDestination
                         var jink = jinkField.GetValue(cSeeker);
                         if (jink != null)
                         {
-                            if (jinkAmountField == null) jinkAmountField = AccessTools.Field(jink.GetType(), "amount") ?? AccessTools.Field(jink.GetType(), "Amount");
-                            if (jinkActiveField == null) jinkActiveField = AccessTools.Field(jink.GetType(), "active") ?? AccessTools.Field(jink.GetType(), "Active");
+                            if (jinkAmountField == null) jinkAmountField = AccessTools.Field(jink.GetType(), "amount");
+                            //if (jinkActiveField == null) jinkActiveField = AccessTools.Field(jink.GetType(), "active") ?? AccessTools.Field(jink.GetType(), "Active");
                             
                             if (jinkAmountField != null) jinkAmountField.SetValue(jink, 0f);
-                            if (jinkActiveField != null) jinkActiveField.SetValue(jink, false);
+                            //if (jinkActiveField != null) jinkActiveField.SetValue(jink, false);
                             
                             jinkField.SetValue(cSeeker, jink); 
                         }
@@ -380,20 +397,49 @@ namespace AlteredDestination
                 GlobalPosition currentPos = __instance.GlobalPosition();
                 float dx = (float)(currentPos.x - dest.x);
                 float dz = (float)(currentPos.z - dest.z);
-                if (Mathf.Sqrt(dx * dx + dz * dz) < AlteredDestinationPlugin.WaypointRadius.Value) {
-                    data.currentWaypoint++;
-                    if (data.currentWaypoint >= data.waypoints.Count)
+
+                float distanceToWaypoint = Mathf.Sqrt(dx * dx + dz * dz);
+
+                if (distanceToWaypoint < AlteredDestinationPlugin.WaypointRadius.Value) {
+                    data.midpointCounter = AlteredDestinationPlugin.PreWaypointCounter.Value;
+                }
+
+                if (data.midpointCounter > 0) {
+                    data.midpointCounter--;
+
+                    GlobalPosition destNext;
+                    if (data.currentWaypoint < data.waypoints.Count - 1)
                     {
-                        AlteredDestinationPlugin.Log($"Missile reached final destination no terminal seeker activation");
-                        data.currentWaypoint = data.waypoints.Count - 1;
+                        destNext = data.waypoints[data.currentWaypoint + 1];
+                        AlteredDestinationPlugin.Debug($"Prewaypoint with next waypoint");
+                    } else if (data.targetUnit != null) {
+                        destNext = data.targetUnit.GlobalPosition();
+                        AlteredDestinationPlugin.Debug($"Prewaypoint with target");
+                    } else {
+                        AlteredDestinationPlugin.Debug($"Prewaypoint failure");
+                        return true;
                     }
-                    dest = data.waypoints[data.currentWaypoint];
+
+                    dest.x = (dest.x + destNext.x) / 2;
+                    dest.z = (dest.z + destNext.z) / 2;
+
+                    if (data.midpointCounter == 0) {
+                        data.currentWaypoint++;
+                        AlteredDestinationPlugin.Debug($"Switch waypoint {data.currentWaypoint+1} / {data.waypoints.Count}");
+                        if (data.currentWaypoint >= data.waypoints.Count)
+                        {
+                            AlteredDestinationPlugin.Debug($"Missile reached final destination no terminal seeker activation");
+                            data.currentWaypoint = data.waypoints.Count - 1;
+                        }
+                        dest = data.waypoints[data.currentWaypoint];
+                    }
                 }
 
                 aimPoint.x = dest.x;
                 aimPoint.z = dest.z;
                 // Leave Y completely vanilla so the cruise radar can keep it safely above the water.
                 targetVel = Vector3.zero;
+                AlteredDestinationPlugin.Debug($"Missile waypoint {aimPoint.x} {aimPoint.z}");
             }
             
             return true;
