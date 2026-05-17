@@ -32,7 +32,7 @@ namespace AlteredDestination
             Instance = this;
 
             CruiseAltitude = Config.Bind("General", "Cruise Altitude", 5f, new ConfigDescription("Target radar altitude for cruise missiles in meters. Lower altitude increases the risk of terrain collision.", new AcceptableValueRange<float>(3f, 15f)));
-            DirectNaval = Config.Bind("General", "Final approach against naval target", false, "Off (set as default) = Pop-up attack, On = Direct attack");
+            //DirectNaval = Config.Bind("General", "Final approach against naval target", false, "Off (set as default) = Pop-up attack, On = Direct attack");
             SpreadRadius = Config.Bind("General", "Spread Radius", 15f, "Radius in meters to spread out missiles targeting the same location to prevent stacking.");
             DoJink = Config.Bind("General", "Jinking maneuver in terminal approach", false, "Off (set as default) = No jink, On = Random jinking");
             DoTopattack = Config.Bind("General", "Top attack popup maneuver in terminal approach", false, "Off (set as default) = No top attack, On = Top attack popup");
@@ -262,28 +262,6 @@ namespace AlteredDestination
                         needsRotUpdate = true;
                     }
                 }
-                else
-                {
-                    // NORMAL LOCK: Flat flight
-                    if (Mathf.Abs(vel.y) > 0.1f)
-                    {
-                        vel.y = 0f;
-                        needsVelUpdate = true;
-                    }
-
-                    if (Mathf.Abs(currentPitch) > 0.1f)
-                    {
-                        euler.x = 0f;
-                        needsRotUpdate = true;
-                    }
-                }
-
-                // Always kill pitch momentum if it's building up
-                if (Mathf.Abs(localAngVel.x) > 0.05f)
-                {
-                    localAngVel.x = 0f;
-                    needsAngVelUpdate = true;
-                }
 
                 // Apply only the dirty fields to keep the physics engine fast and happy
                 if (needsVelUpdate) missile.rb.velocity = vel;
@@ -297,6 +275,14 @@ namespace AlteredDestination
             var seekerObj = seekerField.GetValue(__instance);
             OpticalSeekerCruiseMissile cSeeker = seekerObj as OpticalSeekerCruiseMissile;
             
+            if (cSeeker == null) {
+                return true; // prevent calculations for non cruise missiles
+            }
+
+            bool isTerminal = false;
+            var termObj = terminalModeField?.GetValue(cSeeker);
+            if (termObj != null) isTerminal = (bool)termObj;
+
             bool hasManualWaypoint = AlteredDestinationPlugin.MissileWaypoints.TryGetValue(__instance, out var data);
 
             // Calculate deterministic spread offset using cache to eliminate per-frame System.Random lag spikes
@@ -322,87 +308,50 @@ namespace AlteredDestination
                 }
             }
 
-            bool isTerminal = false;
-
-            if (cSeeker != null)
+            // Suppress Top Attack & Jink Evasion
+            // Using neuteredSeekersCache guarantees this heavy reflection only runs ONCE per missile!
+            if (!neuteredSeekersCache.TryGetValue(cSeeker, out _))
             {
-                var termObj = terminalModeField?.GetValue(cSeeker);
-                if (termObj != null) isTerminal = (bool)termObj;
-
-                if (isTerminal)
-                {
-                    // IN TERMINAL MODE: Completely suppress Top Attack & Jink Evasion
-                    // Using neuteredSeekersCache guarantees this heavy reflection only runs ONCE per missile!
-                    if (!neuteredSeekersCache.TryGetValue(cSeeker, out _))
+                if (!AlteredDestinationPlugin.DoTopattack.Value) {
+                    if (topAttackField != null)
                     {
-                        if (!AlteredDestinationPlugin.DoTopattack.Value) {
-                            if (topAttackField != null)
-                            {
-                                var top = topAttackField.GetValue(cSeeker);
-                                if (top != null)
-                                {
-                                    if (topAttackAmountField == null) topAttackAmountField = AccessTools.Field(top.GetType(), "amount") ?? AccessTools.Field(top.GetType(), "Amount");
-                                    if (topAttackActiveField == null) topAttackActiveField = AccessTools.Field(top.GetType(), "active") ?? AccessTools.Field(top.GetType(), "Active");
-                                    
-                                    if (topAttackAmountField != null) topAttackAmountField.SetValue(top, 0f);
-                                    if (topAttackActiveField != null) topAttackActiveField.SetValue(top, false);
-                                    
-                                    topAttackField.SetValue(cSeeker, top); 
-                                }
-                            }
-                        }
-
-                        if (!AlteredDestinationPlugin.DoJink.Value) {
-                            if (jinkField != null)
-                            {
-                                var jink = jinkField.GetValue(cSeeker);
-                                if (jink != null)
-                                {
-                                    if (jinkAmountField == null) jinkAmountField = AccessTools.Field(jink.GetType(), "amount") ?? AccessTools.Field(jink.GetType(), "Amount");
-                                    if (jinkActiveField == null) jinkActiveField = AccessTools.Field(jink.GetType(), "active") ?? AccessTools.Field(jink.GetType(), "Active");
-                                    
-                                    if (jinkAmountField != null) jinkAmountField.SetValue(jink, 0f);
-                                    if (jinkActiveField != null) jinkActiveField.SetValue(jink, false);
-                                    
-                                    jinkField.SetValue(cSeeker, jink); 
-                                }
-                            }
-                        }
-                        
-                        neuteredSeekersCache.Add(cSeeker, new StrongBox<bool>(true));
-                    }
-                }
-
-                // ALWAYS ENFORCE CRUISE RADAR (Both phases)
-                //altitudeTargetField.SetValue(cSeeker, AlteredDestinationPlugin.CruiseAltitude.Value);
-
-                Unit targetUnit = (Unit)seekerTargetField.GetValue(cSeeker) ?? (Unit)missileTargetField.GetValue(__instance);
-                bool isShip = IsShip(targetUnit);
-
-                // 1. GLOBAL LOGIC: Direct Naval Override
-                if (AlteredDestinationPlugin.DirectNaval.Value && isShip && !hasManualWaypoint)
-                {
-                    if (isTerminal) 
-                    {
-                        GlobalPosition tPos = targetUnit.GlobalPosition();
-
-                        aimPoint.x = tPos.x + offsetX;
-                        aimPoint.z = tPos.z + offsetZ;
-                        aimPoint.y = __instance.GlobalPosition().y;
-
-                        if (targetUnit.rb != null) 
+                        var top = topAttackField.GetValue(cSeeker);
+                        if (top != null)
                         {
-                            targetVel = targetUnit.rb.velocity;
-                            targetVel.y = 0f; 
+                            if (topAttackAmountField == null) topAttackAmountField = AccessTools.Field(top.GetType(), "amount") ?? AccessTools.Field(top.GetType(), "Amount");
+                            if (topAttackActiveField == null) topAttackActiveField = AccessTools.Field(top.GetType(), "active") ?? AccessTools.Field(top.GetType(), "Active");
+                            
+                            if (topAttackAmountField != null) topAttackAmountField.SetValue(top, 0f);
+                            if (topAttackActiveField != null) topAttackActiveField.SetValue(top, false);
+                            
+                            topAttackField.SetValue(cSeeker, top); 
                         }
-
-                        // Engage absolute physics lock against pop-up behavior + height failsafe
-                        ApplyCounterPitch(__instance);
                     }
                 }
+
+                if (!AlteredDestinationPlugin.DoJink.Value) {
+                    if (jinkField != null)
+                    {
+                        var jink = jinkField.GetValue(cSeeker);
+                        if (jink != null)
+                        {
+                            if (jinkAmountField == null) jinkAmountField = AccessTools.Field(jink.GetType(), "amount") ?? AccessTools.Field(jink.GetType(), "Amount");
+                            if (jinkActiveField == null) jinkActiveField = AccessTools.Field(jink.GetType(), "active") ?? AccessTools.Field(jink.GetType(), "Active");
+                            
+                            if (jinkAmountField != null) jinkAmountField.SetValue(jink, 0f);
+                            if (jinkActiveField != null) jinkActiveField.SetValue(jink, false);
+                            
+                            jinkField.SetValue(cSeeker, jink); 
+                        }
+                    }
+                }
+                
+                neuteredSeekersCache.Add(cSeeker, new StrongBox<bool>(true));
             }
 
-            // 2. MOD LOGIC: Manual Waypoint Override
+            ApplyCounterPitch(__instance);
+
+            /*// 2. MOD LOGIC: Manual Waypoint Override
             if (hasManualWaypoint)
             {
                 GlobalPosition dest;
@@ -451,7 +400,7 @@ namespace AlteredDestination
                     // Leave Y completely vanilla so the cruise radar can keep it safely above the water.
                     targetVel = Vector3.zero;
                 }
-            }
+            }*/
             
             return true;
         }
