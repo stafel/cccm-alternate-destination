@@ -12,8 +12,8 @@ namespace AlteredDestination
     // Custom class to hold either a static coordinate or a dynamically tracked unit
     public class OverrideData
     {
-        public GlobalPosition staticPos;
-        public Unit targetUnit;
+        public List<GlobalPosition> waypoints;
+        public int currentWaypoint;
     }
 
     [BepInPlugin("com.checkpointcharlie.cruisemissile", "Checkpoint Charlie's Cruise Missile (Alternate destination)", "1.0.0")]
@@ -22,6 +22,7 @@ namespace AlteredDestination
         public static ConditionalWeakTable<Missile, OverrideData> MissileWaypoints = new ConditionalWeakTable<Missile, OverrideData>();
         public static AlteredDestinationPlugin Instance;
         public static ConfigEntry<float> CruiseAltitude;
+        public static ConfigEntry<float> MinimumAltitude;
         public static ConfigEntry<bool> DirectNaval;
         public static ConfigEntry<float> SpreadRadius;
         public static ConfigEntry<bool> DoJink;
@@ -32,6 +33,7 @@ namespace AlteredDestination
             Instance = this;
 
             CruiseAltitude = Config.Bind("General", "Cruise Altitude", 5f, new ConfigDescription("Target radar altitude for cruise missiles in meters. Lower altitude increases the risk of terrain collision.", new AcceptableValueRange<float>(3f, 15f)));
+            MinimumAltitude = Config.Bind("General", "Minimum Altitude", 3f, new ConfigDescription("Minimum radar altitude for cruise missiles in meters before an emergency pullup.", new AcceptableValueRange<float>(1f, 3f)));
             //DirectNaval = Config.Bind("General", "Final approach against naval target", false, "Off (set as default) = Pop-up attack, On = Direct attack");
             SpreadRadius = Config.Bind("General", "Spread Radius", 15f, "Radius in meters to spread out missiles targeting the same location to prevent stacking.");
             DoJink = Config.Bind("General", "Jinking maneuver in terminal approach", false, "Off (set as default) = No jink, On = Random jinking");
@@ -52,7 +54,7 @@ namespace AlteredDestination
         }
     }
 
-    /*[HarmonyPatch(typeof(DynamicMap), "MapControls")]
+    [HarmonyPatch(typeof(DynamicMap), "MapControls")]
     public static class DynamicMap_MapControls_Patch
     {
         public static void Postfix(DynamicMap __instance)
@@ -89,11 +91,17 @@ namespace AlteredDestination
                     {
                         if (baseIcon is UnitMapIcon unitIcon && unitIcon.unit is Missile missile)
                         {
+
+                            var seekerObj = seekerField.GetValue(unitIcon.unit);
+                            OpticalSeekerCruiseMissile cSeeker = seekerObj as OpticalSeekerCruiseMissile;
                             
-                            AlteredDestinationPlugin.MissileWaypoints.Remove(missile);
+                            if (cSeeker == null) {
+                                continue; // this is not a cruise missile, do not mess with it
+                            }
 
                             if (clearWaypoint)
                             {
+                                AlteredDestinationPlugin.MissileWaypoints.Remove(missile);
                                 AlteredDestinationPlugin.Log("Waypoint cleared for missile.");
                                 break;
                             }
@@ -160,7 +168,7 @@ namespace AlteredDestination
                 }
             }
         }
-    }*/
+    }
 
     [HarmonyPatch(typeof(Missile), "SetAimpoint")]
     public static class Missile_SetAimpoint_Patch
@@ -217,7 +225,7 @@ namespace AlteredDestination
                     {
                         inEmergency = true;
                     }
-                    else if (missile.GlobalPosition().y < 1.0)
+                    else if (missile.GlobalPosition().y < AlteredDestinationPlugin.MinimumAltitude.Value)
                     {
                         timerBox.Value = currentTime + 1.0f; // Trigger 1-second pull-up
                         inEmergency = true;
@@ -225,7 +233,7 @@ namespace AlteredDestination
                 }
                 else
                 {
-                    if (missile.GlobalPosition().y < 1.0)
+                    if (missile.GlobalPosition().y < AlteredDestinationPlugin.MinimumAltitude.Value)
                     {
                         failsafeTimers.Add(missile, new StrongBox<float>(currentTime + 1.0f));
                         inEmergency = true;
