@@ -97,7 +97,7 @@ namespace AlteredDestination
             Vector3[] controlPoints = new Vector3[controlWaypoints.Count];
             for (int i = 0; i < controlWaypoints.Count; i++)
             {
-                controlPoints[i] = new Vector3((float)controlWaypoints[i].x, (float)controlWaypoints[i].y, (float)controlWaypoints[i].z);
+                controlPoints[i] = ToVector3(controlWaypoints[i]);
             }
 
             float[] knots = new float[n + degree + 2];
@@ -139,6 +139,7 @@ namespace AlteredDestination
         {
             int n = controlPoints.Length - 1;
             float maxT = knots[n + 1];
+            // Clamp off the exact upper boundary to avoid numeric edge cases in knot span selection.
             float maxSampleT = Mathf.Max(knots[degree], maxT - SplineParameterEpsilon);
             t = Mathf.Clamp(t, knots[degree], maxSampleT);
 
@@ -179,6 +180,11 @@ namespace AlteredDestination
             g.y = p.y;
             g.z = p.z;
             return g;
+        }
+
+        private static Vector3 ToVector3(GlobalPosition p)
+        {
+            return new Vector3((float)p.x, (float)p.y, (float)p.z);
         }
     }
 
@@ -266,11 +272,12 @@ namespace AlteredDestination
                                     splineWaypoints = new List<GlobalPosition>(){cursorCoords},
                                     currentWaypoint = 0
                                 };
-                                AlteredDestinationPlugin.RebuildSplineWaypoints(data);
                             } else {
-                                float progress01 = data.splineWaypoints != null && data.splineWaypoints.Count > 1
-                                    ? (float)data.currentWaypoint / (data.splineWaypoints.Count - 1)
-                                    : 0f;
+                                float progress01 = 0f;
+                                if (data.splineWaypoints != null && data.splineWaypoints.Count > 1)
+                                {
+                                    progress01 = (float)data.currentWaypoint / (data.splineWaypoints.Count - 1);
+                                }
                                 data.waypoints.Add(cursorCoords);
                                 AlteredDestinationPlugin.RebuildSplineWaypoints(data, progress01);
                             }
