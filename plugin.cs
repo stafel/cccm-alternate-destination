@@ -252,13 +252,13 @@ namespace AlteredDestination
                     // EMERGENCY PULL-UP: Force upward velocity and positive pitch
                     if (vel.y < 0.5f) 
                     {
-                        vel.y = 0.5f; // User's reduced climb rate
+                        vel.y += 0.1f; // User's reduced climb rate
                         needsVelUpdate = true;
                     }
 
                     if (Mathf.Abs(currentPitch - (-2f)) > 0.1f) 
                     {
-                        euler.x = -2f; // User's reduced pitch
+                        euler.x -= 0.1f; // User's reduced pitch
                         needsRotUpdate = true;
                     }
                 }
