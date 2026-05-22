@@ -213,7 +213,6 @@ namespace AlteredDestination
         // Reflection targets for Jink (Zig-Zag) suppression
         private static FieldInfo jinkField = AccessTools.Field(typeof(OpticalSeekerCruiseMissile), "jinkEvasion");
         private static FieldInfo jinkAmountField;
-        private static FieldInfo jinkActiveField;
 
         private static Type shipType = AccessTools.TypeByName("Ship");
         private static ConditionalWeakTable<Unit, StrongBox<bool>> isShipCache = new ConditionalWeakTable<Unit, StrongBox<bool>>();
@@ -370,10 +369,8 @@ namespace AlteredDestination
                         if (jink != null)
                         {
                             if (jinkAmountField == null) jinkAmountField = AccessTools.Field(jink.GetType(), "amount");
-                            //if (jinkActiveField == null) jinkActiveField = AccessTools.Field(jink.GetType(), "active") ?? AccessTools.Field(jink.GetType(), "Active");
                             
                             if (jinkAmountField != null) jinkAmountField.SetValue(jink, 0f);
-                            //if (jinkActiveField != null) jinkActiveField.SetValue(jink, false);
                             
                             jinkField.SetValue(cSeeker, jink); 
                         }
