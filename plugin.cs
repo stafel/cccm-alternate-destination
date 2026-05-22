@@ -201,9 +201,6 @@ namespace AlteredDestination
     {
         private static FieldInfo seekerField = AccessTools.Field(typeof(Missile), "seeker");
         private static FieldInfo terminalModeField = AccessTools.Field(typeof(OpticalSeekerCruiseMissile), "terminalMode");
-        private static FieldInfo altitudeTargetField = AccessTools.Field(typeof(OpticalSeekerCruiseMissile), "altitudeTarget");
-        private static FieldInfo missileTargetField = AccessTools.Field(typeof(Missile), "target");
-        private static FieldInfo seekerTargetField = AccessTools.Field(typeof(MissileSeeker), "targetUnit");
         
         // Reflection targets for pop-up suppression
         private static FieldInfo topAttackField = AccessTools.Field(typeof(OpticalSeekerCruiseMissile), "topAttack");
@@ -213,7 +210,6 @@ namespace AlteredDestination
         // Reflection targets for Jink (Zig-Zag) suppression
         private static FieldInfo jinkField = AccessTools.Field(typeof(OpticalSeekerCruiseMissile), "jinkEvasion");
         private static FieldInfo jinkAmountField;
-        private static FieldInfo jinkActiveField;
 
         private static Type shipType = AccessTools.TypeByName("Ship");
         private static ConditionalWeakTable<Unit, StrongBox<bool>> isShipCache = new ConditionalWeakTable<Unit, StrongBox<bool>>();
@@ -222,6 +218,119 @@ namespace AlteredDestination
         private static ConditionalWeakTable<OpticalSeekerCruiseMissile, StrongBox<bool>> neuteredSeekersCache = new ConditionalWeakTable<OpticalSeekerCruiseMissile, StrongBox<bool>>();
         private static ConditionalWeakTable<Missile, StrongBox<Vector2>> spreadCache = new ConditionalWeakTable<Missile, StrongBox<Vector2>>();
         private static ConditionalWeakTable<Missile, StrongBox<float>> failsafeTimers = new ConditionalWeakTable<Missile, StrongBox<float>>();
+        private static ConditionalWeakTable<Missile, StrongBox<LineRenderer>> routeRenderers = new ConditionalWeakTable<Missile, StrongBox<LineRenderer>>();
+
+        private static LineRenderer GetOrCreateRouteRenderer(Missile missile)
+        {
+            if (!AlteredDestinationPlugin.DebugOutput.Value)
+            {
+                return null;            
+            }
+
+
+            if (missile == null || missile.gameObject == null)
+            {
+                return null;
+            }
+
+            if (routeRenderers.TryGetValue(missile, out var cachedRenderer) && cachedRenderer.Value != null)
+            {
+                return cachedRenderer.Value;
+            }
+
+            GameObject lineObject = new GameObject("WaypointRouteLine");
+            lineObject.hideFlags = HideFlags.DontSave;
+            lineObject.transform.SetParent(missile.transform, false);
+
+            LineRenderer lineRenderer = lineObject.AddComponent<LineRenderer>();
+            lineRenderer.useWorldSpace = true;
+            lineRenderer.loop = false;
+            lineRenderer.alignment = LineAlignment.View;
+            lineRenderer.textureMode = LineTextureMode.Stretch;
+            lineRenderer.numCornerVertices = 2;
+            lineRenderer.numCapVertices = 2;
+            lineRenderer.startWidth = 0.25f;
+            lineRenderer.endWidth = 0.25f;
+            lineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            lineRenderer.receiveShadows = false;
+            lineRenderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
+            lineRenderer.sortingOrder = short.MaxValue;
+
+            Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Hidden/Internal-Colored");
+            if (shader != null)
+            {
+                lineRenderer.material = new Material(shader);
+            }
+
+            lineRenderer.startColor = new Color(0.1f, 0.9f, 1f, 1f);
+            lineRenderer.endColor = new Color(1f, 0.85f, 0.2f, 1f);
+            lineRenderer.enabled = false;
+
+            routeRenderers.Add(missile, new StrongBox<LineRenderer>(lineRenderer));
+            return lineRenderer;
+        }
+
+        private static Vector3 SetToCruiselevel(Vector3 localPos)
+        {
+            return new Vector3(localPos.x, AlteredDestinationPlugin.CruiseAltitude.Value, localPos.z);
+        }
+
+        private static void UpdateRouteVisualizer(Missile missile, OverrideData data)
+        {
+            LineRenderer lineRenderer = GetOrCreateRouteRenderer(missile);
+            if (lineRenderer == null)
+            {
+                return;
+            }
+
+            if (missile == null || missile.gameObject == null || data == null || data.waypoints == null || data.waypoints.Count == 0)
+            {
+                lineRenderer.enabled = false;
+                return;
+            }
+
+            List<Vector3> routePoints = new List<Vector3>(data.waypoints.Count + 2)
+            {
+                SetToCruiselevel(missile.transform.position)
+            };
+
+            for (int i = data.currentWaypoint; i < data.waypoints.Count; i++)
+            {
+                routePoints.Add(SetToCruiselevel(data.waypoints[i].ToLocalPosition()));
+            }
+
+            if (data.targetUnit != null && data.targetUnit.gameObject != null)
+            {
+                routePoints.Add(SetToCruiselevel(data.targetUnit.transform.position));
+            }
+
+            if (routePoints.Count < 2)
+            {
+                lineRenderer.enabled = false;
+                return;
+            }
+
+            for (int i = 0; i < routePoints.Count; i++) {
+                routePoints[i].Set(routePoints[i].x, AlteredDestinationPlugin.CruiseAltitude.Value, routePoints[i].z);
+            }
+
+            lineRenderer.positionCount = routePoints.Count;
+            lineRenderer.SetPositions(routePoints.ToArray());
+            lineRenderer.enabled = true;
+        }
+
+        private static void DisableRouteVisualizer(Missile missile)
+        {
+            if (missile == null)
+            {
+                return;
+            }
+
+            if (routeRenderers.TryGetValue(missile, out var cachedRenderer) && cachedRenderer.Value != null)
+            {
+                cachedRenderer.Value.enabled = false;
+            }
+        }
 
         private static bool IsShip(Unit targetUnit)
         {
@@ -386,10 +495,9 @@ namespace AlteredDestination
             ApplyCounterPitch(__instance);
 
             // 2. MOD LOGIC: Manual Waypoint Override
-            if ((hasManualWaypoint) && (!isTerminal))
+            if (hasManualWaypoint)
             {
                 GlobalPosition dest;
-                Vector3 newTargetVel = Vector3.zero;
 
                 dest = data.waypoints[data.currentWaypoint];
 
@@ -435,11 +543,20 @@ namespace AlteredDestination
                     }
                 }
 
-                aimPoint.x = dest.x;
-                aimPoint.z = dest.z;
-                // Leave Y completely vanilla so the cruise radar can keep it safely above the water.
-                targetVel = Vector3.zero;
-                AlteredDestinationPlugin.Debug($"Missile waypoint {aimPoint.x} {aimPoint.z}");
+                if (!isTerminal)
+                {
+                    aimPoint.x = dest.x + offsetX;
+                    aimPoint.z = dest.z + offsetZ;
+                    // Leave Y completely vanilla so the cruise radar can keep it safely above the water.
+                    targetVel = Vector3.zero;
+                    AlteredDestinationPlugin.Debug($"Missile waypoint {aimPoint.x} {aimPoint.z}");
+                }
+
+                UpdateRouteVisualizer(__instance, data);
+            }
+            else
+            {
+                DisableRouteVisualizer(__instance);
             }
             
             return true;
