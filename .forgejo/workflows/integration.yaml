@@ -27,8 +27,8 @@ jobs:
     - name: Setup bepinex nuget source
       run: dotnet nuget add source https://nuget.bepinex.dev/v3/index.json
     - name: Restore dependencies
-      run: dotnet restore cccm-alternate-destination.slnx
+      run: dotnet restore AlteredDestination.Tests/AlteredDestination.Tests.csproj
     - name: Build
-      run: dotnet build cccm-alternate-destination.slnx --no-restore
+      run: dotnet build AlteredDestination.csproj --no-restore
     - name: Test
-      run: dotnet test cccm-alternate-destination.slnx --no-build --verbosity normal
+      run: dotnet test AlteredDestination.Tests/AlteredDestination.Tests.csproj --no-restore --verbosity normal

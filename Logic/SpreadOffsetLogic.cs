@@ -13,10 +13,10 @@ namespace AlteredDestination.Logic
 
             System.Random random = new System.Random(seed);
             float angle = (float)random.NextDouble() * (float)(Math.PI * 2d);
-            float radius = MathF.Sqrt((float)random.NextDouble()) * spreadRadius;
+            float radius = (float)Math.Sqrt((float)random.NextDouble()) * spreadRadius;
 
-            float x = MathF.Cos(angle) * radius;
-            float z = MathF.Sin(angle) * radius;
+            float x = (float)Math.Cos(angle) * radius;
+            float z = (float)Math.Sin(angle) * radius;
             return (x, z);
         }
     }

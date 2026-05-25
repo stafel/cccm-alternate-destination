@@ -76,7 +76,7 @@ public class MissileNavigationLogicTests
 
         var result = MissileNavigationLogic.TryComputeAim(
             state,
-            new WaypointNavigationSettings(waypointRadius: 50f, preWaypointCounter: 2),
+            new WaypointNavigationSettings(waypointRadius: 1f, preWaypointCounter: 2),
             new Waypoint2D(0d, 0d),
             fallbackTarget: null,
             out var destination);
@@ -101,7 +101,7 @@ public class MissileNavigationLogicTests
 
         var result = MissileNavigationLogic.TryComputeAim(
             state,
-            new WaypointNavigationSettings(waypointRadius: 50f, preWaypointCounter: 2),
+            new WaypointNavigationSettings(waypointRadius: 1f, preWaypointCounter: 2),
             new Waypoint2D(0d, 0d),
             fallbackTarget,
             out var destination);

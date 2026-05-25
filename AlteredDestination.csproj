@@ -32,4 +32,9 @@
     <None Include="plugin.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="AlteredDestination.Tests/**/*.cs" />
+    <None Include="AlteredDestination.Tests/**/*.cs" />
+  </ItemGroup>
+
 </Project>

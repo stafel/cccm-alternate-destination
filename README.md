@@ -5,4 +5,4 @@ checkpoint chalie's cruise missile
 
 Run unit tests from repository root:
 
-`dotnet test cccm-alternate-destination.slnx`
+`dotnet test AlteredDestination.Tests/AlteredDestination.Tests.csproj`
