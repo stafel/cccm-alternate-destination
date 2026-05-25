@@ -6,16 +6,15 @@ using UnityEngine;
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Reflection;
+using AlteredDestination.Logic;
 
 namespace AlteredDestination
 {
     // Custom class to hold either a static coordinate or a dynamically tracked unit
     public class OverrideData
     {
-        public List<GlobalPosition> waypoints;
-        public int currentWaypoint;
+        public WaypointRouteState routeState;
         public Unit targetUnit;
-        public int midpointCounter;
     }
 
     [BepInPlugin("com.checkpointcharlie.cruisemissile", "Checkpoint Charlie's Cruise Missile (Alternate destination)", "1.0.0")]
@@ -146,13 +145,16 @@ namespace AlteredDestination
                             if (!hasValue) {
                                 data = new OverrideData()
                                 {
-                                    waypoints = new List<GlobalPosition>(){cursorCoords},
-                                    currentWaypoint = 0,
+                                    routeState = new WaypointRouteState(),
                                     targetUnit = closestEnemy,
-                                    midpointCounter = 0
                                 };
+                                data.routeState.Waypoints.Add(new Waypoint2D(cursorCoords.x, cursorCoords.z));
                             } else {
-                                data.waypoints.Add(cursorCoords);
+                                if (data.routeState == null)
+                                {
+                                    data.routeState = new WaypointRouteState();
+                                }
+                                data.routeState.Waypoints.Add(new Waypoint2D(cursorCoords.x, cursorCoords.z));
                                 if (closestEnemy != null) {
                                     data.targetUnit = closestEnemy;
                                 }
@@ -330,12 +332,9 @@ namespace AlteredDestination
                 }
                 else
                 {
-                    System.Random rand = new System.Random(__instance.GetInstanceID());
-                    float angle = (float)rand.NextDouble() * Mathf.PI * 2f;
-                    float radius = Mathf.Sqrt((float)rand.NextDouble()) * AlteredDestinationPlugin.SpreadRadius.Value;
-                    
-                    offsetX = Mathf.Cos(angle) * radius;
-                    offsetZ = Mathf.Sin(angle) * radius;
+                    var spread = SpreadOffsetLogic.ComputeDeterministicOffset(__instance.GetInstanceID(), AlteredDestinationPlugin.SpreadRadius.Value);
+                    offsetX = spread.X;
+                    offsetZ = spread.Z;
                     
                     spreadCache.Add(__instance, new StrongBox<Vector2>(new Vector2(offsetX, offsetZ)));
                 }
@@ -385,55 +384,32 @@ namespace AlteredDestination
             // 2. MOD LOGIC: Manual Waypoint Override
             if ((hasManualWaypoint) && (!isTerminal))
             {
-                GlobalPosition dest;
-                Vector3 newTargetVel = Vector3.zero;
+                if (data.routeState == null)
+                {
+                    return true;
+                }
 
-                dest = data.waypoints[data.currentWaypoint];
-
-                // check to advance waypoint
                 GlobalPosition currentPos = __instance.GlobalPosition();
-                float dx = (float)(currentPos.x - dest.x);
-                float dz = (float)(currentPos.z - dest.z);
-
-                float distanceToWaypoint = Mathf.Sqrt(dx * dx + dz * dz);
-
-                if (distanceToWaypoint < AlteredDestinationPlugin.WaypointRadius.Value) {
-                    data.midpointCounter = AlteredDestinationPlugin.PreWaypointCounter.Value;
+                Waypoint2D currentWaypoint = new Waypoint2D(currentPos.x, currentPos.z);
+                Waypoint2D? targetWaypoint = null;
+                if (data.targetUnit != null)
+                {
+                    GlobalPosition targetPos = data.targetUnit.GlobalPosition();
+                    targetWaypoint = new Waypoint2D(targetPos.x, targetPos.z);
                 }
 
-                if (data.midpointCounter > 0) {
-                    data.midpointCounter--;
+                WaypointNavigationSettings settings = new WaypointNavigationSettings(
+                    AlteredDestinationPlugin.WaypointRadius.Value,
+                    AlteredDestinationPlugin.PreWaypointCounter.Value);
 
-                    GlobalPosition destNext;
-                    if (data.currentWaypoint < data.waypoints.Count - 1)
-                    {
-                        destNext = data.waypoints[data.currentWaypoint + 1];
-                        AlteredDestinationPlugin.Debug($"Prewaypoint with next waypoint");
-                    } else if (data.targetUnit != null) {
-                        destNext = data.targetUnit.GlobalPosition();
-                        AlteredDestinationPlugin.Debug($"Prewaypoint with target");
-                    } else {
-                        AlteredDestinationPlugin.Debug($"Prewaypoint failure");
-                        return true;
-                    }
-
-                    dest.x = (dest.x + destNext.x) / 2;
-                    dest.z = (dest.z + destNext.z) / 2;
-
-                    if (data.midpointCounter == 0) {
-                        data.currentWaypoint++;
-                        AlteredDestinationPlugin.Debug($"Switch waypoint {data.currentWaypoint+1} / {data.waypoints.Count}");
-                        if (data.currentWaypoint >= data.waypoints.Count)
-                        {
-                            AlteredDestinationPlugin.Debug($"Missile reached final destination no terminal seeker activation");
-                            data.currentWaypoint = data.waypoints.Count - 1;
-                        }
-                        dest = data.waypoints[data.currentWaypoint];
-                    }
+                if (!MissileNavigationLogic.TryComputeAim(data.routeState, settings, currentWaypoint, targetWaypoint, out Waypoint2D destination))
+                {
+                    AlteredDestinationPlugin.Debug($"Prewaypoint failure");
+                    return true;
                 }
 
-                aimPoint.x = dest.x;
-                aimPoint.z = dest.z;
+                aimPoint.x = destination.X;
+                aimPoint.z = destination.Z;
                 // Leave Y completely vanilla so the cruise radar can keep it safely above the water.
                 targetVel = Vector3.zero;
                 AlteredDestinationPlugin.Debug($"Missile waypoint {aimPoint.x} {aimPoint.z}");

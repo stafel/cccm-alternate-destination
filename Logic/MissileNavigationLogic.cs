@@ -1,0 +1,122 @@
+using System;
+using System.Collections.Generic;
+
+namespace AlteredDestination.Logic
+{
+    public readonly struct Waypoint2D
+    {
+        public Waypoint2D(double x, double z)
+        {
+            X = x;
+            Z = z;
+        }
+
+        public double X { get; }
+        public double Z { get; }
+    }
+
+    public sealed class WaypointRouteState
+    {
+        public List<Waypoint2D> Waypoints { get; } = new List<Waypoint2D>();
+        public int CurrentWaypoint { get; set; }
+        public int MidpointCounter { get; set; }
+    }
+
+    public readonly struct WaypointNavigationSettings
+    {
+        public WaypointNavigationSettings(float waypointRadius, int preWaypointCounter)
+        {
+            WaypointRadius = waypointRadius;
+            PreWaypointCounter = preWaypointCounter;
+        }
+
+        public float WaypointRadius { get; }
+        public int PreWaypointCounter { get; }
+    }
+
+    public static class MissileNavigationLogic
+    {
+        public static bool TryComputeAim(
+            WaypointRouteState state,
+            WaypointNavigationSettings settings,
+            Waypoint2D currentPosition,
+            Waypoint2D? fallbackTarget,
+            out Waypoint2D aimPoint)
+        {
+            aimPoint = default;
+
+            if (state == null || state.Waypoints.Count == 0)
+            {
+                return false;
+            }
+
+            if (state.CurrentWaypoint < 0)
+            {
+                state.CurrentWaypoint = 0;
+            }
+            else if (state.CurrentWaypoint >= state.Waypoints.Count)
+            {
+                state.CurrentWaypoint = state.Waypoints.Count - 1;
+            }
+
+            Waypoint2D destination = state.Waypoints[state.CurrentWaypoint];
+            float distanceToWaypoint = Distance2D(currentPosition, destination);
+            if (distanceToWaypoint < settings.WaypointRadius)
+            {
+                state.MidpointCounter = settings.PreWaypointCounter;
+            }
+
+            if (state.MidpointCounter > 0)
+            {
+                state.MidpointCounter--;
+                if (!TryGetNextTarget(state, fallbackTarget, out Waypoint2D nextTarget))
+                {
+                    return false;
+                }
+
+                destination = new Waypoint2D(
+                    (destination.X + nextTarget.X) / 2.0d,
+                    (destination.Z + nextTarget.Z) / 2.0d);
+
+                if (state.MidpointCounter == 0)
+                {
+                    state.CurrentWaypoint++;
+                    if (state.CurrentWaypoint >= state.Waypoints.Count)
+                    {
+                        state.CurrentWaypoint = state.Waypoints.Count - 1;
+                    }
+
+                    destination = state.Waypoints[state.CurrentWaypoint];
+                }
+            }
+
+            aimPoint = destination;
+            return true;
+        }
+
+        private static bool TryGetNextTarget(WaypointRouteState state, Waypoint2D? fallbackTarget, out Waypoint2D target)
+        {
+            if (state.CurrentWaypoint < state.Waypoints.Count - 1)
+            {
+                target = state.Waypoints[state.CurrentWaypoint + 1];
+                return true;
+            }
+
+            if (fallbackTarget.HasValue)
+            {
+                target = fallbackTarget.Value;
+                return true;
+            }
+
+            target = default;
+            return false;
+        }
+
+        private static float Distance2D(Waypoint2D from, Waypoint2D to)
+        {
+            double dx = from.X - to.X;
+            double dz = from.Z - to.Z;
+            return (float)Math.Sqrt((dx * dx) + (dz * dz));
+        }
+    }
+}
