@@ -7,6 +7,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
+    <EnableGameBuild Condition="Exists('Assembly-CSharp.dll') and Exists('Mirage.dll')">true</EnableGameBuild>
+    <EnableGameBuild Condition="'$(EnableGameBuild)' == ''">false</EnableGameBuild>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,13 +18,23 @@
     <PackageReference Include="UnityEngine.Modules" Version="2021.3.33" IncludeAssets="compile" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(EnableGameBuild)' == 'true'">
     <Reference Include="Assembly-CSharp">
       <HintPath>./Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Mirage">
       <HintPath>./Mirage.dll</HintPath>
     </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(EnableGameBuild)' != 'true'">
+    <Compile Remove="plugin.cs" />
+    <None Include="plugin.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="AlteredDestination.Tests/**/*.cs" />
+    <None Include="AlteredDestination.Tests/**/*.cs" />
   </ItemGroup>
 
 </Project>
