@@ -24,8 +24,6 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
-    - name: Setup bepinex nuget source
-      run: dotnet nuget add source https://nuget.bepinex.dev/v3/index.json
     - name: Restore dependencies
       run: dotnet restore AlteredDestination.Tests/AlteredDestination.Tests.csproj
     - name: Build

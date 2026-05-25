@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore AlteredDestination.Tests/AlteredDestination.Tests.csproj
+
+      - name: Build
+        run: dotnet build AlteredDestination.csproj --configuration Release --no-restore
+
+      - name: Run unit tests
+        run: dotnet test AlteredDestination.Tests/AlteredDestination.Tests.csproj --configuration Release
+
+      - name: Create assembly directory
+        run: mkdir assembly
+
+      - name: Copy DLL to assembly
+        run: cp bin/Release/netstandard2.0/checkpointchaliescruisemissile.dll assembly/checkpointchaliescruisemissile.dll
+
+      - name: Create release directory
+        run: mkdir release
+
+      - name: Compress files into release
+        run: cd assembly && tar -czvf ../release/cccm-alternate-destination.tar.gz ./
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/cccm-alternate-destination.tar.gz
+          generate_release_notes: true
