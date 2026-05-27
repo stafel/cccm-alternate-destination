@@ -234,8 +234,7 @@ namespace AlteredDestination
         {
             try
             {
-                var selectedIcons = __instance.selectedIcons;
-                var candidateIcons = selectedIcons;
+                var candidateIcons = __instance.selectedIcons;
                 if (candidateIcons == null || candidateIcons.Count == 0)
                 {
                     candidateIcons = __instance.mapIcons;
