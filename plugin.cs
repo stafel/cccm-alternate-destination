@@ -333,7 +333,7 @@ namespace AlteredDestination
                 int lastIndex = lines.Count - 1;
                 if (lines[lastIndex] != null)
                 {
-                    Object.Destroy(lines[lastIndex]);
+                    UnityEngine.Object.Destroy(lines[lastIndex]);
                 }
 
                 lines.RemoveAt(lastIndex);
@@ -387,8 +387,8 @@ namespace AlteredDestination
             }
 
             GlobalPosition global = default;
-            global.x = waypoint.X;
-            global.z = waypoint.Z;
+            global.x = (float)waypoint.X;
+            global.z = (float)waypoint.Z;
 
             object[] args;
             object invokeResult;
@@ -612,7 +612,7 @@ namespace AlteredDestination
             {
                 if (line != null)
                 {
-                    Object.Destroy(line);
+                    UnityEngine.Object.Destroy(line);
                 }
             }
         }
@@ -856,8 +856,8 @@ namespace AlteredDestination
                     return true;
                 }
 
-                aimPoint.x = destination.X;
-                aimPoint.z = destination.Z;
+                aimPoint.x = (float)destination.X;
+                aimPoint.z = (float)destination.Z;
                 // Leave Y completely vanilla so the cruise radar can keep it safely above the water.
                 targetVel = Vector3.zero;
                 AlteredDestinationPlugin.Debug($"Missile waypoint {aimPoint.x} {aimPoint.z}");
