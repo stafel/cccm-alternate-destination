@@ -223,6 +223,7 @@ namespace AlteredDestination
             "GetMapPosition",
             "CoordinatesToMap"
         };
+        private const float WaypointLineWidth = 1.5f;
 
         private static MethodInfo projectionMethod;
         private static MapProjectionMode projectionMode = MapProjectionMode.Unknown;
@@ -398,7 +399,7 @@ namespace AlteredDestination
                         mapPosition = new Vector3(returnVec2.x, returnVec2.y, 0f);
                         return true;
                     }
-                     break;
+                    break;
                 case MapProjectionMode.ReturnVector3:
                     invokeResult = projectionMethod.Invoke(map, new object[] { global });
                     if (invokeResult is Vector3 returnVec3)
@@ -528,7 +529,7 @@ namespace AlteredDestination
 
             rect.localPosition = startPos;
             rect.localRotation = Quaternion.Euler(0f, 0f, angle);
-            rect.sizeDelta = new Vector2(distance, 1.5f);
+            rect.sizeDelta = new Vector2(distance, WaypointLineWidth);
         }
 
         private static GameObject CreateLine(Transform parent)
