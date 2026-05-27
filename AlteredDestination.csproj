@@ -25,6 +25,9 @@
     <Reference Include="Mirage">
       <HintPath>./Mirage.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>./UnityEngine.UI.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(EnableGameBuild)' != 'true'">
