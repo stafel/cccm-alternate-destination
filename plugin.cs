@@ -211,7 +211,7 @@ namespace AlteredDestination
             OutVector3
         }
 
-        private static FieldInfo missileSeekerField = AccessTools.Field(typeof(Missile), "seeker");
+        private static FieldInfo _missileSeekerField = AccessTools.Field(typeof(Missile), "seeker");
         private static readonly Dictionary<UnitMapIcon, List<GameObject>> waypointLines = new Dictionary<UnitMapIcon, List<GameObject>>();
         private static readonly string[] projectionMethodNames =
         {
@@ -224,6 +224,7 @@ namespace AlteredDestination
             "CoordinatesToMap"
         };
         private const float WaypointLineWidth = 1.5f;
+        private const float MinimumLineDistance = 1f;
 
         private static MethodInfo projectionMethod;
         private static MapProjectionMode projectionMode = MapProjectionMode.Unknown;
@@ -254,8 +255,7 @@ namespace AlteredDestination
                         continue;
                     }
 
-                    var seekerObj = missileSeekerField?.GetValue(missile);
-                    if (!(seekerObj is OpticalSeekerCruiseMissile))
+                    if (!(_missileSeekerField?.GetValue(missile) is OpticalSeekerCruiseMissile))
                     {
                         HideLines(icon);
                         continue;
@@ -519,7 +519,7 @@ namespace AlteredDestination
 
             Vector3 diff = endPos - startPos;
             float distance = diff.magnitude;
-            if (distance < 1f)
+            if (distance < MinimumLineDistance)
             {
                 rect.gameObject.SetActive(false);
                 return;
