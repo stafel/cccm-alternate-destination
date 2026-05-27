@@ -235,14 +235,20 @@ namespace AlteredDestination
             try
             {
                 var selectedIcons = __instance.selectedIcons;
-                if (selectedIcons == null)
+                var candidateIcons = selectedIcons;
+                if (candidateIcons == null || candidateIcons.Count == 0)
+                {
+                    candidateIcons = __instance.mapIcons;
+                }
+
+                if (candidateIcons == null)
                 {
                     HideAll();
                     return;
                 }
 
                 HashSet<UnitMapIcon> updatedIcons = new HashSet<UnitMapIcon>();
-                foreach (var baseIcon in selectedIcons)
+                foreach (var baseIcon in candidateIcons)
                 {
                     if (!(baseIcon is UnitMapIcon icon) || icon.unit == null || !icon.gameObject.activeInHierarchy)
                     {
@@ -445,7 +451,11 @@ namespace AlteredDestination
 
         private static void ResolveProjectionMethod()
         {
-            var methods = AccessTools.GetDeclaredMethods(typeof(DynamicMap));
+            List<MethodInfo> methods = new List<MethodInfo>();
+            for (Type t = typeof(DynamicMap); t != null; t = t.BaseType)
+            {
+                methods.AddRange(t.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
+            }
 
             foreach (string methodName in projectionMethodNames)
             {
