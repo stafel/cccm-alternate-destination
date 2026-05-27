@@ -3,6 +3,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
+using UnityEngine.UI;
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Reflection;
@@ -195,6 +196,417 @@ namespace AlteredDestination
                     }
                 }
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(DynamicMap), "Update")]
+    public static class DynamicMap_WaypointOverlay_Patch
+    {
+        private enum MapProjectionMode
+        {
+            Unknown,
+            ReturnVector2,
+            ReturnVector3,
+            OutVector2,
+            OutVector3
+        }
+
+        private static FieldInfo missileSeekerField = AccessTools.Field(typeof(Missile), "seeker");
+        private static readonly Dictionary<UnitMapIcon, List<GameObject>> waypointLines = new Dictionary<UnitMapIcon, List<GameObject>>();
+        private static readonly string[] projectionMethodNames =
+        {
+            "CoordinatesToMapPosition",
+            "CoordinatesToMapPoint",
+            "WorldPositionToMapPosition",
+            "MapPositionFromCoordinates",
+            "GlobalToMapPosition",
+            "GetMapPosition",
+            "CoordinatesToMap"
+        };
+
+        private static MethodInfo projectionMethod;
+        private static MapProjectionMode projectionMode = MapProjectionMode.Unknown;
+        private static bool projectionResolved;
+
+        public static void Postfix(DynamicMap __instance)
+        {
+            try
+            {
+                var selectedIcons = __instance.selectedIcons;
+                if (selectedIcons == null)
+                {
+                    HideAll();
+                    return;
+                }
+
+                HashSet<UnitMapIcon> updatedIcons = new HashSet<UnitMapIcon>();
+                foreach (var baseIcon in selectedIcons)
+                {
+                    if (!(baseIcon is UnitMapIcon icon) || icon.unit == null || !icon.gameObject.activeInHierarchy)
+                    {
+                        continue;
+                    }
+
+                    if (!(icon.unit is Missile missile))
+                    {
+                        HideLines(icon);
+                        continue;
+                    }
+
+                    var seekerObj = missileSeekerField?.GetValue(missile);
+                    if (!(seekerObj is OpticalSeekerCruiseMissile))
+                    {
+                        HideLines(icon);
+                        continue;
+                    }
+
+                    if (!AlteredDestinationPlugin.MissileWaypoints.TryGetValue(missile, out var data) ||
+                        data?.routeState?.Waypoints == null ||
+                        data.routeState.Waypoints.Count == 0)
+                    {
+                        HideLines(icon);
+                        continue;
+                    }
+
+                    if (!UpdateWaypointLines(__instance, icon, data.routeState))
+                    {
+                        HideLines(icon);
+                        continue;
+                    }
+
+                    updatedIcons.Add(icon);
+                }
+
+                List<UnitMapIcon> staleIcons = new List<UnitMapIcon>();
+                foreach (var pair in waypointLines)
+                {
+                    if (!updatedIcons.Contains(pair.Key))
+                    {
+                        HideLines(pair.Key);
+                        if (pair.Key == null || !pair.Key.gameObject.activeInHierarchy)
+                        {
+                            CleanupIcon(pair.Key);
+                            staleIcons.Add(pair.Key);
+                        }
+                    }
+                }
+
+                foreach (var staleIcon in staleIcons)
+                {
+                    waypointLines.Remove(staleIcon);
+                }
+            }
+            catch (Exception e)
+            {
+                AlteredDestinationPlugin.Debug("Failed to render waypoint overlay: " + e.Message);
+            }
+        }
+
+        public static void ExternalCleanup(UnitMapIcon icon)
+        {
+            CleanupIcon(icon);
+            if (icon != null)
+            {
+                waypointLines.Remove(icon);
+            }
+        }
+
+        private static bool UpdateWaypointLines(DynamicMap map, UnitMapIcon icon, WaypointRouteState routeState)
+        {
+            if (!waypointLines.TryGetValue(icon, out var lines))
+            {
+                lines = new List<GameObject>();
+                waypointLines[icon] = lines;
+            }
+
+            int waypointCount = routeState.Waypoints.Count;
+            while (lines.Count < waypointCount)
+            {
+                lines.Add(CreateLine(icon.transform.parent));
+            }
+
+            while (lines.Count > waypointCount)
+            {
+                int lastIndex = lines.Count - 1;
+                if (lines[lastIndex] != null)
+                {
+                    Object.Destroy(lines[lastIndex]);
+                }
+
+                lines.RemoveAt(lastIndex);
+            }
+
+            Vector3 startPos = icon.transform.localPosition;
+            for (int i = 0; i < waypointCount; i++)
+            {
+                if (!TryGetMapPosition(map, routeState.Waypoints[i], out Vector3 endPos))
+                {
+                    return false;
+                }
+
+                var lineObj = lines[i];
+                if (lineObj == null)
+                {
+                    lineObj = CreateLine(icon.transform.parent);
+                    lines[i] = lineObj;
+                }
+
+                lineObj.SetActive(true);
+
+                var lineImage = lineObj.GetComponent<Image>();
+                if (lineImage != null)
+                {
+                    bool isCurrentWaypoint = i == Mathf.Clamp(routeState.CurrentWaypoint, 0, waypointCount - 1);
+                    lineImage.color = isCurrentWaypoint
+                        ? new Color(1f, 0.9f, 0f, 0.9f)
+                        : new Color(0f, 1f, 1f, 0.75f);
+                }
+
+                UpdateLineTransform(lineObj.GetComponent<RectTransform>(), startPos, endPos);
+                startPos = endPos;
+            }
+
+            return true;
+        }
+
+        private static bool TryGetMapPosition(DynamicMap map, Waypoint2D waypoint, out Vector3 mapPosition)
+        {
+            mapPosition = default;
+            if (!projectionResolved)
+            {
+                ResolveProjectionMethod();
+                projectionResolved = true;
+            }
+
+            if (projectionMethod == null || projectionMode == MapProjectionMode.Unknown)
+            {
+                return false;
+            }
+
+            GlobalPosition global = default;
+            global.x = waypoint.X;
+            global.z = waypoint.Z;
+
+            object[] args;
+            object invokeResult;
+            switch (projectionMode)
+            {
+                case MapProjectionMode.ReturnVector2:
+                    invokeResult = projectionMethod.Invoke(map, new object[] { global });
+                    if (invokeResult is Vector2 returnVec2)
+                    {
+                        mapPosition = new Vector3(returnVec2.x, returnVec2.y, 0f);
+                        return true;
+                    }
+                     break;
+                case MapProjectionMode.ReturnVector3:
+                    invokeResult = projectionMethod.Invoke(map, new object[] { global });
+                    if (invokeResult is Vector3 returnVec3)
+                    {
+                        mapPosition = returnVec3;
+                        return true;
+                    }
+                    break;
+                case MapProjectionMode.OutVector2:
+                    args = new object[] { global, default(Vector2) };
+                    invokeResult = projectionMethod.Invoke(map, args);
+                    if (invokeResult is bool okVec2 && !okVec2)
+                    {
+                        return false;
+                    }
+
+                    if (args[1] is Vector2 outVec2)
+                    {
+                        mapPosition = new Vector3(outVec2.x, outVec2.y, 0f);
+                        return true;
+                    }
+                    break;
+                case MapProjectionMode.OutVector3:
+                    args = new object[] { global, default(Vector3) };
+                    invokeResult = projectionMethod.Invoke(map, args);
+                    if (invokeResult is bool okVec3 && !okVec3)
+                    {
+                        return false;
+                    }
+
+                    if (args[1] is Vector3 outVec3)
+                    {
+                        mapPosition = outVec3;
+                        return true;
+                    }
+                    break;
+            }
+
+            return false;
+        }
+
+        private static void ResolveProjectionMethod()
+        {
+            var methods = AccessTools.GetDeclaredMethods(typeof(DynamicMap));
+
+            foreach (string methodName in projectionMethodNames)
+            {
+                foreach (var method in methods)
+                {
+                    if (method.Name == methodName && TryMatchProjectionSignature(method, out MapProjectionMode mode))
+                    {
+                        projectionMethod = method;
+                        projectionMode = mode;
+                        return;
+                    }
+                }
+            }
+
+            foreach (var method in methods)
+            {
+                if (TryMatchProjectionSignature(method, out MapProjectionMode mode))
+                {
+                    projectionMethod = method;
+                    projectionMode = mode;
+                    return;
+                }
+            }
+        }
+
+        private static bool TryMatchProjectionSignature(MethodInfo method, out MapProjectionMode mode)
+        {
+            mode = MapProjectionMode.Unknown;
+            var parameters = method.GetParameters();
+
+            if (parameters.Length == 1 && parameters[0].ParameterType == typeof(GlobalPosition))
+            {
+                if (method.ReturnType == typeof(Vector2))
+                {
+                    mode = MapProjectionMode.ReturnVector2;
+                    return true;
+                }
+
+                if (method.ReturnType == typeof(Vector3))
+                {
+                    mode = MapProjectionMode.ReturnVector3;
+                    return true;
+                }
+            }
+
+            if (parameters.Length == 2 &&
+                parameters[0].ParameterType == typeof(GlobalPosition) &&
+                parameters[1].ParameterType.IsByRef)
+            {
+                Type outType = parameters[1].ParameterType.GetElementType();
+                if (outType == typeof(Vector2))
+                {
+                    mode = MapProjectionMode.OutVector2;
+                    return method.ReturnType == typeof(bool) || method.ReturnType == typeof(void);
+                }
+
+                if (outType == typeof(Vector3))
+                {
+                    mode = MapProjectionMode.OutVector3;
+                    return method.ReturnType == typeof(bool) || method.ReturnType == typeof(void);
+                }
+            }
+
+            return false;
+        }
+
+        private static void UpdateLineTransform(RectTransform rect, Vector3 startPos, Vector3 endPos)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            Vector3 diff = endPos - startPos;
+            float distance = diff.magnitude;
+            if (distance < 1f)
+            {
+                rect.gameObject.SetActive(false);
+                return;
+            }
+
+            float angle = Mathf.Atan2(diff.y, diff.x) * Mathf.Rad2Deg;
+
+            rect.localPosition = startPos;
+            rect.localRotation = Quaternion.Euler(0f, 0f, angle);
+            rect.sizeDelta = new Vector2(distance, 1.5f);
+        }
+
+        private static GameObject CreateLine(Transform parent)
+        {
+            var lineObj = new GameObject("CruiseMissileWaypointLine");
+            lineObj.transform.SetParent(parent, false);
+            lineObj.transform.SetAsLastSibling();
+
+            var image = lineObj.AddComponent<Image>();
+            image.raycastTarget = false;
+            image.color = new Color(0f, 1f, 1f, 0.75f);
+
+            var rect = lineObj.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0f, 0.5f);
+
+            return lineObj;
+        }
+
+        private static void HideLines(UnitMapIcon icon)
+        {
+            if (icon == null || !waypointLines.TryGetValue(icon, out var lines))
+            {
+                return;
+            }
+
+            foreach (var line in lines)
+            {
+                if (line != null)
+                {
+                    line.SetActive(false);
+                }
+            }
+        }
+
+        private static void CleanupIcon(UnitMapIcon icon)
+        {
+            if (icon == null || !waypointLines.TryGetValue(icon, out var lines))
+            {
+                return;
+            }
+
+            foreach (var line in lines)
+            {
+                if (line != null)
+                {
+                    Object.Destroy(line);
+                }
+            }
+        }
+
+        private static void HideAll()
+        {
+            foreach (var pair in waypointLines)
+            {
+                if (pair.Value == null)
+                {
+                    continue;
+                }
+
+                foreach (var line in pair.Value)
+                {
+                    if (line != null)
+                    {
+                        line.SetActive(false);
+                    }
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(UnitMapIcon), "OnRemoveIcon")]
+    public static class UnitMapIcon_OnRemoveIcon_WaypointOverlay_Patch
+    {
+        public static void Prefix(UnitMapIcon __instance)
+        {
+            DynamicMap_WaypointOverlay_Patch.ExternalCleanup(__instance);
         }
     }
 
