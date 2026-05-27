@@ -3,7 +3,6 @@ using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
-using UnityEngine.UI;
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Reflection;
@@ -229,6 +228,9 @@ namespace AlteredDestination
         private static MethodInfo projectionMethod;
         private static MapProjectionMode projectionMode = MapProjectionMode.Unknown;
         private static bool projectionResolved;
+        private static readonly Type imageType = AccessTools.TypeByName("UnityEngine.UI.Image");
+        private static readonly PropertyInfo imageColorProperty = imageType?.GetProperty("color");
+        private static readonly PropertyInfo imageRaycastTargetProperty = imageType?.GetProperty("raycastTarget");
 
         public static void Postfix(DynamicMap __instance)
         {
@@ -354,13 +356,13 @@ namespace AlteredDestination
 
                 lineObj.SetActive(true);
 
-                var lineImage = lineObj.GetComponent<Image>();
+                var lineImage = GetLineImage(lineObj);
                 if (lineImage != null)
                 {
                     bool isCurrentWaypoint = i == Mathf.Clamp(routeState.CurrentWaypoint, 0, waypointCount - 1);
-                    lineImage.color = isCurrentWaypoint
+                    SetImageColor(lineImage, isCurrentWaypoint
                         ? new Color(1f, 0.9f, 0f, 0.9f)
-                        : new Color(0f, 1f, 1f, 0.75f);
+                        : new Color(0f, 1f, 1f, 0.75f));
                 }
 
                 UpdateLineTransform(lineObj.GetComponent<RectTransform>(), startPos, endPos);
@@ -538,9 +540,12 @@ namespace AlteredDestination
             lineObj.transform.SetParent(parent, false);
             lineObj.transform.SetAsLastSibling();
 
-            var image = lineObj.AddComponent<Image>();
-            image.raycastTarget = false;
-            image.color = new Color(0f, 1f, 1f, 0.75f);
+            var image = CreateLineImage(lineObj);
+            if (image != null)
+            {
+                SetImageRaycastTarget(image, false);
+                SetImageColor(image, new Color(0f, 1f, 1f, 0.75f));
+            }
 
             var rect = lineObj.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -548,6 +553,36 @@ namespace AlteredDestination
             rect.pivot = new Vector2(0f, 0.5f);
 
             return lineObj;
+        }
+
+        private static Component CreateLineImage(GameObject lineObj)
+        {
+            if (imageType == null || lineObj == null)
+            {
+                return null;
+            }
+
+            return lineObj.AddComponent(imageType);
+        }
+
+        private static Component GetLineImage(GameObject lineObj)
+        {
+            if (imageType == null || lineObj == null)
+            {
+                return null;
+            }
+
+            return lineObj.GetComponent(imageType);
+        }
+
+        private static void SetImageColor(Component image, Color color)
+        {
+            imageColorProperty?.SetValue(image, color);
+        }
+
+        private static void SetImageRaycastTarget(Component image, bool raycastTarget)
+        {
+            imageRaycastTargetProperty?.SetValue(image, raycastTarget);
         }
 
         private static void HideLines(UnitMapIcon icon)
