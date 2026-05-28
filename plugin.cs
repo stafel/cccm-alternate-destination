@@ -163,6 +163,7 @@ namespace AlteredDestination
 
                                 if (data.routeState.Waypoints.Count < 3) {
                                     data.routeState.Waypoints.Add(new Waypoint2D(cursorCoords.x, cursorCoords.z));
+                                    AlteredDestinationPlugin.Log("Adding waypoint directly");
                                 }
                                 else if (data.routeState.Waypoints.Count == 3) {
                                     data.routeState.Waypoints.Add(new Waypoint2D(cursorCoords.x, cursorCoords.z));
@@ -172,6 +173,7 @@ namespace AlteredDestination
                                         data.routeState.Waypoints[data.routeState.Waypoints.Count-2],
                                         data.routeState.Waypoints[data.routeState.Waypoints.Count-1],
                                         AlteredDestinationPlugin.MaxBendAngle.Value);
+                                    AlteredDestinationPlugin.Log("Debending mid waypoint");
                                 }
                                 else { // more than three waypoints need to be split up to not disturb previous angles
                                     Waypoint2D newestWp = new Waypoint2D(cursorCoords.x, cursorCoords.z);
@@ -182,6 +184,7 @@ namespace AlteredDestination
                                         90.0
                                     ));
                                     data.routeState.Waypoints.Add(newestWp);
+                                    AlteredDestinationPlugin.Log("Splitting mid waypoint");
                                 }
 
                                 if (closestEnemy != null) {
