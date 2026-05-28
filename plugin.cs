@@ -47,7 +47,7 @@ namespace AlteredDestination
             WaypointSteps = Config.Bind("General", "Waypoint steps", 5, new ConfigDescription("Number of smoothing steps to do on a waypoint", new AcceptableValueRange<int>(1, 20)));
             WobbleActivationDistance = Config.Bind("General", "Wobble activation distance", 5000.0f, new ConfigDescription("Enable random wobble when midpoint distance to target falls below this threshold.", new AcceptableValueRange<float>(0.0f, 50000.0f)));
             WobbleRange = Config.Bind("General", "Wobble range", 500, new ConfigDescription("Random wobble offset range on X/Z while leading in (generated between -range and +range).", new AcceptableValueRange<int>(0, 5000)));
-            MaxBendAngle = Config.Bind("General", "Max bend angle", 90.0, new ConfigDescription("Maximum angle between waypoints compared to a straight line in degrees. Eveything over this will get smoothed out", new AcceptableValueRange<double>(0, 180)));
+            MaxBendAngle = Config.Bind("General", "Max bend angle", 40.0, new ConfigDescription("Maximum angle between waypoints compared to a straight line in degrees. Eveything over this will get smoothed out", new AcceptableValueRange<double>(0, 180)));
             DebugOutput = Config.Bind("General", "Debug logging", true);
 
             var harmony = new Harmony("com.checkpointcharlie.cruisemissile");
