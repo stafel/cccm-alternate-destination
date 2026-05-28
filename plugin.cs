@@ -32,6 +32,7 @@ namespace AlteredDestination
         public static ConfigEntry<float> WobbleActivationDistance;
         public static ConfigEntry<int> WobbleRange;
         public static ConfigEntry<bool> DebugOutput;
+        public static ConfigEntry<double> MaxBendAngle;
 
         private void Awake()
         {
@@ -46,6 +47,7 @@ namespace AlteredDestination
             WaypointSteps = Config.Bind("General", "Waypoint steps", 5, new ConfigDescription("Number of smoothing steps to do on a waypoint", new AcceptableValueRange<int>(1, 20)));
             WobbleActivationDistance = Config.Bind("General", "Wobble activation distance", 5000.0f, new ConfigDescription("Enable random wobble when midpoint distance to target falls below this threshold.", new AcceptableValueRange<float>(0.0f, 50000.0f)));
             WobbleRange = Config.Bind("General", "Wobble range", 500, new ConfigDescription("Random wobble offset range on X/Z while leading in (generated between -range and +range).", new AcceptableValueRange<int>(0, 5000)));
+            MaxBendAngle = Config.Bind("General", "Max bend angle", 90.0, new ConfigDescription("Maximum angle between waypoints compared to a straight line in degrees. Eveything over this will get smoothed out", new AcceptableValueRange<double>(0, 180)));
             DebugOutput = Config.Bind("General", "Debug logging", true);
 
             var harmony = new Harmony("com.checkpointcharlie.cruisemissile");
@@ -158,7 +160,30 @@ namespace AlteredDestination
                                 {
                                     data.routeState = new WaypointRouteState();
                                 }
-                                data.routeState.Waypoints.Add(new Waypoint2D(cursorCoords.x, cursorCoords.z));
+
+                                if (data.routeState.Waypoints.Count < 3) {
+                                    data.routeState.Waypoints.Add(new Waypoint2D(cursorCoords.x, cursorCoords.z));
+                                }
+                                else if (data.routeState.Waypoints.Count == 3) {
+                                    data.routeState.Waypoints.Add(new Waypoint2D(cursorCoords.x, cursorCoords.z));
+                                    // replace second last waypoint with a smoothed version
+                                    data.routeState.Waypoints[data.routeState.Waypoints.Count-2] = MissileNavigationLogic.MidpointUnderBendAngle(
+                                        data.routeState.Waypoints[data.routeState.Waypoints.Count-3],
+                                        data.routeState.Waypoints[data.routeState.Waypoints.Count-2],
+                                        data.routeState.Waypoints[data.routeState.Waypoints.Count-1],
+                                        AlteredDestinationPlugin.MaxBendAngle.Value);
+                                }
+                                else { // more than three waypoints need to be split up to not disturb previous angles
+                                    Waypoint2D newestWp = new Waypoint2D(cursorCoords.x, cursorCoords.z);
+                                    data.routeState.Waypoints.AddRange(MissileNavigationLogic.PointsUnderBendAngle(
+                                        data.routeState.Waypoints[data.routeState.Waypoints.Count-2],
+                                        data.routeState.Waypoints[data.routeState.Waypoints.Count-1],
+                                        newestWp,
+                                        90.0
+                                    ));
+                                    data.routeState.Waypoints.Add(newestWp);
+                                }
+
                                 if (closestEnemy != null) {
                                     data.targetUnit = closestEnemy;
                                 }

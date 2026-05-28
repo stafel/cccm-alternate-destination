@@ -203,4 +203,18 @@ public class MissileNavigationLogicTests
         var dz = (float)(from.Z - to.Z);
         return MathF.Sqrt((dx * dx) + (dz * dz));
     }
+
+    [Fact]
+    public void StraightBend()
+    {
+        Assert.Equal(0, MissileNavigationLogic.BendAngle(new Waypoint2D(0, 0), new Waypoint2D(10, 0), new Waypoint2D(20, 0)));
+        Assert.Equal(0, MissileNavigationLogic.BendAngle(new Waypoint2D(0, 0), new Waypoint2D(0, 10), new Waypoint2D(0, 20)));
+    }
+
+    [Fact]
+    public void RightAngleBend()
+    {
+        Assert.Equal(90, MissileNavigationLogic.BendAngle(new Waypoint2D(0, 0), new Waypoint2D(10, 0), new Waypoint2D(10, 10)));
+        Assert.Equal(90, MissileNavigationLogic.BendAngle(new Waypoint2D(0, 0), new Waypoint2D(0, 10), new Waypoint2D(10, 10)));
+    }
 }
