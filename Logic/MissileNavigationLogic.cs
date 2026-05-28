@@ -61,7 +61,6 @@ namespace AlteredDestination.Logic
 
             Waypoint2D destination = state.Waypoints[state.CurrentWaypoint];
             float distanceToWaypoint = Distance2D(currentPosition, destination);
-            AlteredDestinationPlugin.Debug($"Distance to waypoint {distanceToWaypoint}");
             if ((state.MidpointCounter == 0) && (distanceToWaypoint < settings.WaypointRadius))
             {
                 state.MidpointCounter = settings.PreWaypointCounter;
