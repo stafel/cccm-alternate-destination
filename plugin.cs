@@ -430,7 +430,11 @@ namespace AlteredDestination
 
                 aimPoint.x = (float)destination.X;
                 aimPoint.z = (float)destination.Z;
-                // Leave Y completely vanilla so the cruise radar can keep it safely above the water.
+
+                // try to leave Y completely vanilla so the cruise radar can keep it safely above the water.
+                /*if (aimPoint.y < AlteredDestinationPlugin.MinimumAltitude.Value) {
+                    aimPoint.y = AlteredDestinationPlugin.MinimumAltitude.Value;
+                }*/
                 targetVel = Vector3.zero;
                 AlteredDestinationPlugin.Debug($"Missile waypoint {aimPoint.x} {aimPoint.z}");
             }

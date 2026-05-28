@@ -85,6 +85,32 @@ namespace AlteredDestination.Logic
                     if (state.CurrentWaypoint >= state.Waypoints.Count)
                     {
                         state.CurrentWaypoint = state.Waypoints.Count - 1;
+
+                        if ((fallbackTarget != null) && (fallbackTarget.HasValue)) { // put mid waypoints between us and target to lead missile in
+                            Waypoint2D lastWaypoint = state.Waypoints[state.CurrentWaypoint];
+                            float restDist = Distance2D(lastWaypoint, fallbackTarget.Value);
+                            if (restDist > 1000.0f) {
+                                state.CurrentWaypoint += 1; // increment to next to prevent missile trying to loopdiloop back
+                            }
+                            Random rnd = new Random();
+                            int wobbleX = 0;
+                            int wobbleY = 0;
+                            while (restDist > 1000.0f) {
+                                if (restDist < 5000.0f) {
+                                    wobbleX = rnd.Next(-500, 500); // random wobble to evade gunfire
+                                    wobbleZ = rnd.Next(-500, 500);
+                                }
+
+                                Waypoint2D nextWaypoint = new Waypoint2D(
+                                    (lastWaypoint.X + fallbackTarget.Value.X) / 2 + wobbleX,
+                                    (lastWaypoint.Z + fallbackTarget.Value.Z) / 2 + wobbleZ);
+
+                                lastWaypoint = nextWaypoint;
+                                state.Waypoints.Add(nextWaypoint);
+
+                                restDist = Distance2D(nextWaypoint, fallbackTarget.Value);
+                            }
+                        }
                     }
 
                     destination = state.Waypoints[state.CurrentWaypoint];
