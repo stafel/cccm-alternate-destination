@@ -27,8 +27,7 @@ namespace AlteredDestination
         public static ConfigEntry<float> SpreadRadius;
         public static ConfigEntry<bool> DoJink;
         public static ConfigEntry<bool> DoTopattack;
-        public static ConfigEntry<float> WaypointRadius;
-        public static ConfigEntry<int> PreWaypointCounter;
+        public static ConfigEntry<int> WaypointSteps;
         public static ConfigEntry<bool> DebugOutput;
 
         private void Awake()
@@ -40,8 +39,8 @@ namespace AlteredDestination
             SpreadRadius = Config.Bind("General", "Spread Radius", 15f, "Radius in meters to spread out missiles targeting the same location to prevent stacking.");
             DoJink = Config.Bind("General", "Jinking maneuver in terminal approach", false, "Off (set as default) = No jink, On = Random jinking");
             DoTopattack = Config.Bind("General", "Top attack popup maneuver in terminal approach", false, "Off (set as default) = No top attack, On = Top attack popup");
-            WaypointRadius = Config.Bind("General", "Waypoint radius", 50f, new ConfigDescription("Distance to waypoint to switch to next one", new AcceptableValueRange<float>(10f, 200f)));
-            PreWaypointCounter = Config.Bind("General", "Pre Waypoint", 5, new ConfigDescription("pre pitch", new AcceptableValueRange<int>(0, 10)));
+            //WaypointRadius = Config.Bind("General", "Waypoint radius", 300f, new ConfigDescription("Distance to waypoint to switch to next one", new AcceptableValueRange<float>(260f, 2600f)));
+            WaypointSteps = Config.Bind("General", "Waypoint steps", 5, new ConfigDescription("Number of smoothing steps to do on a waypoint", new AcceptableValueRange<int>(1, 20)));
             DebugOutput = Config.Bind("General", "Debug logging", true);
 
             var harmony = new Harmony("com.checkpointcharlie.cruisemissile");
@@ -386,11 +385,12 @@ namespace AlteredDestination
             {
                 if (data.routeState == null)
                 {
+                    AlteredDestinationPlugin.Log($"Waypoint failure no route");
                     return true;
                 }
 
                 GlobalPosition currentPos = __instance.GlobalPosition();
-                Waypoint2D currentWaypoint = new Waypoint2D(currentPos.x, currentPos.z);
+                Waypoint2D currentPosition = new Waypoint2D(currentPos.x, currentPos.z);
                 Waypoint2D? targetWaypoint = null;
                 if (data.targetUnit != null)
                 {
@@ -398,18 +398,33 @@ namespace AlteredDestination
                     targetWaypoint = new Waypoint2D(targetPos.x, targetPos.z);
                 }
 
-                WaypointNavigationSettings settings = new WaypointNavigationSettings(
-                    AlteredDestinationPlugin.WaypointRadius.Value,
-                    AlteredDestinationPlugin.PreWaypointCounter.Value);
+                // waypoint radius = (number of steps * missile velocity) / 2
+                float waypointRadius = Math.Max((AlteredDestinationPlugin.WaypointSteps.Value * __instance.rb.velocity.magnitude) / 2, 100.0f); // 100 min radius as safety
+                AlteredDestinationPlugin.Log($"Prewaypoint calc, radi {waypointRadius} vel {__instance.rb.velocity.magnitude} count {AlteredDestinationPlugin.WaypointSteps.Value}");
 
-                if (!MissileNavigationLogic.TryComputeAim(data.routeState, settings, currentWaypoint, targetWaypoint, out Waypoint2D destination))
+                // number of waypoints = waypoint diameter / missile velocity
+                //int prewaypointcounter = (int)Math.Ceiling(AlteredDestinationPlugin.WaypointRadius.Value * 2 / __instance.rb.velocity.magnitude);
+                //AlteredDestinationPlugin.Log($"Prewaypoint calc, radi {AlteredDestinationPlugin.WaypointRadius.Value} vel {__instance.rb.velocity.magnitude} count {prewaypointcounter}");
+
+                WaypointNavigationSettings settings = new WaypointNavigationSettings(
+                    waypointRadius,
+                    AlteredDestinationPlugin.WaypointSteps.Value);
+
+                int err = MissileNavigationLogic.TryComputeAim(data.routeState, settings, currentPosition, targetWaypoint, out Waypoint2D destination);
+                if (err == -1)
                 {
-                    AlteredDestinationPlugin.Debug($"Prewaypoint failure");
+                    AlteredDestinationPlugin.Log($"Waypoint failure state");
                     return true;
                 }
+                if (err == -2)
+                {
+                    AlteredDestinationPlugin.Log($"Waypoint failure target");
+                    return true;
+                }
+                AlteredDestinationPlugin.Log($"Wypoint {data.routeState.CurrentWaypoint}, midpoint cnt {data.routeState.MidpointCounter}");
 
-                aimPoint.x = destination.X;
-                aimPoint.z = destination.Z;
+                aimPoint.x = (float)destination.X;
+                aimPoint.z = (float)destination.Z;
                 // Leave Y completely vanilla so the cruise radar can keep it safely above the water.
                 targetVel = Vector3.zero;
                 AlteredDestinationPlugin.Debug($"Missile waypoint {aimPoint.x} {aimPoint.z}");

@@ -36,7 +36,7 @@ namespace AlteredDestination.Logic
 
     public static class MissileNavigationLogic
     {
-        public static bool TryComputeAim(
+        public static int TryComputeAim(
             WaypointRouteState state,
             WaypointNavigationSettings settings,
             Waypoint2D currentPosition,
@@ -47,7 +47,7 @@ namespace AlteredDestination.Logic
 
             if (state == null || state.Waypoints.Count == 0)
             {
-                return false;
+                return -1;
             }
 
             if (state.CurrentWaypoint < 0)
@@ -61,7 +61,8 @@ namespace AlteredDestination.Logic
 
             Waypoint2D destination = state.Waypoints[state.CurrentWaypoint];
             float distanceToWaypoint = Distance2D(currentPosition, destination);
-            if (distanceToWaypoint < settings.WaypointRadius)
+            AlteredDestinationPlugin.Log($"Distance to waypoint {distanceToWaypoint}");
+            if ((state.MidpointCounter == 0) && (distanceToWaypoint < settings.WaypointRadius))
             {
                 state.MidpointCounter = settings.PreWaypointCounter;
             }
@@ -71,7 +72,7 @@ namespace AlteredDestination.Logic
                 state.MidpointCounter--;
                 if (!TryGetNextTarget(state, fallbackTarget, out Waypoint2D nextTarget))
                 {
-                    return false;
+                    return -2;
                 }
 
                 destination = new Waypoint2D(
@@ -91,7 +92,7 @@ namespace AlteredDestination.Logic
             }
 
             aimPoint = destination;
-            return true;
+            return 0;
         }
 
         private static bool TryGetNextTarget(WaypointRouteState state, Waypoint2D? fallbackTarget, out Waypoint2D target)
