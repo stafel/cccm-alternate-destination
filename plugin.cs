@@ -167,24 +167,29 @@ namespace AlteredDestination
                                 }
                                 else if (data.routeState.Waypoints.Count == 3) {
                                     data.routeState.Waypoints.Add(new Waypoint2D(cursorCoords.x, cursorCoords.z));
+                                    Waypoint2D oldwp = data.routeState.Waypoints[data.routeState.Waypoints.Count-2];
                                     // replace second last waypoint with a smoothed version
                                     data.routeState.Waypoints[data.routeState.Waypoints.Count-2] = MissileNavigationLogic.MidpointUnderBendAngle(
                                         data.routeState.Waypoints[data.routeState.Waypoints.Count-3],
                                         data.routeState.Waypoints[data.routeState.Waypoints.Count-2],
                                         data.routeState.Waypoints[data.routeState.Waypoints.Count-1],
                                         AlteredDestinationPlugin.MaxBendAngle.Value);
-                                    AlteredDestinationPlugin.Log("Debending mid waypoint");
+
+                                    Waypoint2D newwp = data.routeState.Waypoints[data.routeState.Waypoints.Count-2];
+                                    AlteredDestinationPlugin.Log($"Debending mid waypoint {oldwp.X}, {oldwp.Z} to {newwp.X} {newwp.Z}");
                                 }
                                 else { // more than three waypoints need to be split up to not disturb previous angles
                                     Waypoint2D newestWp = new Waypoint2D(cursorCoords.x, cursorCoords.z);
-                                    data.routeState.Waypoints.AddRange(MissileNavigationLogic.PointsUnderBendAngle(
+                                    List<Waypoint2D> bendPoints = MissileNavigationLogic.PointsUnderBendAngle(
                                         data.routeState.Waypoints[data.routeState.Waypoints.Count-2],
                                         data.routeState.Waypoints[data.routeState.Waypoints.Count-1],
                                         newestWp,
                                         90.0
-                                    ));
+                                    );
+                                    data.routeState.Waypoints.Remove(data.routeState.Waypoints[data.routeState.Waypoints.Count-1]); // remove previously existing midpoint
+                                    data.routeState.Waypoints.AddRange(bendPoints);
                                     data.routeState.Waypoints.Add(newestWp);
-                                    AlteredDestinationPlugin.Log("Splitting mid waypoint");
+                                    AlteredDestinationPlugin.Log($"Splitting mid waypoint into {bendPoints.Count}");
                                 }
 
                                 if (closestEnemy != null) {

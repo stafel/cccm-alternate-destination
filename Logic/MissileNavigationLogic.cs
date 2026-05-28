@@ -230,8 +230,8 @@ namespace AlteredDestination.Logic
 
             // split up B into two points between AB and BC
             // angle between point before A, A, AB should not change, no check needed
-            Waypoint2D AB = Midpoint(A, B);
-            Waypoint2D BC = Midpoint(B, C);
+            Waypoint2D AB = Midpoint(A, B, B); // keep the midpoints in one third to the bend
+            Waypoint2D BC = Midpoint(B, B, C);
 
             if (BendAngle(A, AB, BC) > maxAngle) { // angles are symetric, only one check needed
                 newPoints.AddRange(PointsUnderBendAngle(A, AB, BC, maxAngle));
