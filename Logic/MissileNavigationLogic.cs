@@ -223,6 +223,11 @@ namespace AlteredDestination.Logic
         {
             List<Waypoint2D> newPoints = new List<Waypoint2D>();
 
+            if (BendAngle(A, B, C) <= maxAngle) { // quick exit if angle already ok
+                newPoints.Add(B);
+                return newPoints;
+            }
+
             // split up B into two points between AB and BC
             // angle between point before A, A, AB should not change, no check needed
             Waypoint2D AB = Midpoint(A, B);
