@@ -379,8 +379,6 @@ namespace AlteredDestination
                 neuteredSeekersCache.Add(cSeeker, new StrongBox<bool>(true));
             }
 
-            ApplyCounterPitch(__instance);
-
             // 2. MOD LOGIC: Manual Waypoint Override
             if ((hasManualWaypoint) && (!isTerminal))
             {
@@ -436,6 +434,8 @@ namespace AlteredDestination
                 targetVel = Vector3.zero;
                 AlteredDestinationPlugin.Debug($"Missile waypoint {aimPoint.x} {aimPoint.z}");
             }
+
+            ApplyCounterPitch(__instance);
             
             return true;
         }
