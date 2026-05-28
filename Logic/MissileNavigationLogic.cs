@@ -94,9 +94,9 @@ namespace AlteredDestination.Logic
                             }
                             Random rnd = new Random();
                             int wobbleX = 0;
-                            int wobbleY = 0;
+                            int wobbleZ = 0;
                             while (restDist > 1000.0f) {
-                                if (restDist < 5000.0f) {
+                                if (restDist/2 < 5000.0f) {
                                     wobbleX = rnd.Next(-500, 500); // random wobble to evade gunfire
                                     wobbleZ = rnd.Next(-500, 500);
                                 }
