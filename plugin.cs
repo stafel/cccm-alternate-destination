@@ -15,6 +15,7 @@ namespace AlteredDestination
     {
         public WaypointRouteState routeState;
         public Unit targetUnit;
+        public bool triedTargettingUnit;
     }
 
     [BepInPlugin("com.checkpointcharlie.cruisemissile", "Checkpoint Charlie's Cruise Missile (Alternate destination)", "1.0.0")]
@@ -398,30 +399,36 @@ namespace AlteredDestination
                     targetWaypoint = new Waypoint2D(targetPos.x, targetPos.z);
                 }
 
+                if ((!data.triedTargettingUnit) && (data.targetUnit == null)) {
+                    // fallback if no enemy clicked, get already targeted unit of missile
+                    data.targetUnit = (Unit)seekerTargetField.GetValue(cSeeker) ?? (Unit)missileTargetField.GetValue(__instance);
+                    data.triedTargettingUnit = true;
+                }
+
                 // waypoint radius = (number of steps * missile velocity) / 2
                 float waypointRadius = Math.Max((AlteredDestinationPlugin.WaypointSteps.Value * __instance.rb.velocity.magnitude) / 2, 100.0f); // 100 min radius as safety
-                AlteredDestinationPlugin.Log($"Prewaypoint calc, radi {waypointRadius} vel {__instance.rb.velocity.magnitude} count {AlteredDestinationPlugin.WaypointSteps.Value}");
+                AlteredDestinationPlugin.Debug($"Prewaypoint calc, radi {waypointRadius} vel {__instance.rb.velocity.magnitude} count {AlteredDestinationPlugin.WaypointSteps.Value}");
 
                 // number of waypoints = waypoint diameter / missile velocity
                 //int prewaypointcounter = (int)Math.Ceiling(AlteredDestinationPlugin.WaypointRadius.Value * 2 / __instance.rb.velocity.magnitude);
-                //AlteredDestinationPlugin.Log($"Prewaypoint calc, radi {AlteredDestinationPlugin.WaypointRadius.Value} vel {__instance.rb.velocity.magnitude} count {prewaypointcounter}");
+                //AlteredDestinationPlugin.Debug($"Prewaypoint calc, radi {AlteredDestinationPlugin.WaypointRadius.Value} vel {__instance.rb.velocity.magnitude} count {prewaypointcounter}");
 
                 WaypointNavigationSettings settings = new WaypointNavigationSettings(
                     waypointRadius,
                     AlteredDestinationPlugin.WaypointSteps.Value);
 
-                int err = MissileNavigationLogic.TryComputeAim(data.routeState, settings, currentPosition, targetWaypoint, out Waypoint2D destination);
-                if (err == -1)
+                if ((targetWaypoint != null) && (targetWaypoint.HasValue)) {
+                    AlteredDestinationPlugin.Debug($"Target waypoint {targetWaypoint.Value.X}, {targetWaypoint.Value.Z}");
+                } else {
+                    AlteredDestinationPlugin.Debug($"Target waypoint is null, target unit is {data.targetUnit}");
+                }
+
+                if (!MissileNavigationLogic.TryComputeAim(data.routeState, settings, currentPosition, targetWaypoint, out Waypoint2D destination))
                 {
-                    AlteredDestinationPlugin.Log($"Waypoint failure state");
+                    AlteredDestinationPlugin.Debug($"Waypoint failure");
                     return true;
                 }
-                if (err == -2)
-                {
-                    AlteredDestinationPlugin.Log($"Waypoint failure target");
-                    return true;
-                }
-                AlteredDestinationPlugin.Log($"Wypoint {data.routeState.CurrentWaypoint}, midpoint cnt {data.routeState.MidpointCounter}");
+                AlteredDestinationPlugin.Debug($"Waypoint {data.routeState.CurrentWaypoint}, midpoint cnt {data.routeState.MidpointCounter}");
 
                 aimPoint.x = (float)destination.X;
                 aimPoint.z = (float)destination.Z;
