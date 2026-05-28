@@ -24,14 +24,22 @@ namespace AlteredDestination.Logic
 
     public readonly struct WaypointNavigationSettings
     {
-        public WaypointNavigationSettings(float waypointRadius, int preWaypointCounter)
+        public WaypointNavigationSettings(
+            float waypointRadius,
+            int preWaypointCounter,
+            float wobbleActivationDistance = 5000.0f,
+            int wobbleRange = 500)
         {
             WaypointRadius = waypointRadius;
             PreWaypointCounter = preWaypointCounter;
+            WobbleActivationDistance = wobbleActivationDistance;
+            WobbleRange = wobbleRange;
         }
 
         public float WaypointRadius { get; }
         public int PreWaypointCounter { get; }
+        public float WobbleActivationDistance { get; }
+        public int WobbleRange { get; }
     }
 
     public static class MissileNavigationLogic
@@ -61,7 +69,6 @@ namespace AlteredDestination.Logic
 
             Waypoint2D destination = state.Waypoints[state.CurrentWaypoint];
             float distanceToWaypoint = Distance2D(currentPosition, destination);
-            AlteredDestinationPlugin.Debug($"Distance to waypoint {distanceToWaypoint}");
             if ((state.MidpointCounter == 0) && (distanceToWaypoint < settings.WaypointRadius))
             {
                 state.MidpointCounter = settings.PreWaypointCounter;
@@ -86,30 +93,9 @@ namespace AlteredDestination.Logic
                     {
                         state.CurrentWaypoint = state.Waypoints.Count - 1;
 
-                        if ((fallbackTarget != null) && (fallbackTarget.HasValue)) { // put mid waypoints between us and target to lead missile in
-                            Waypoint2D lastWaypoint = state.Waypoints[state.CurrentWaypoint];
-                            float restDist = Distance2D(lastWaypoint, fallbackTarget.Value);
-                            if (restDist > 1000.0f) {
-                                state.CurrentWaypoint += 1; // increment to next to prevent missile trying to loopdiloop back
-                            }
-                            Random rnd = new Random();
-                            int wobbleX = 0;
-                            int wobbleZ = 0;
-                            while (restDist > 1000.0f) {
-                                if (restDist/2 < 5000.0f) {
-                                    wobbleX = rnd.Next(-500, 500); // random wobble to evade gunfire
-                                    wobbleZ = rnd.Next(-500, 500);
-                                }
-
-                                Waypoint2D nextWaypoint = new Waypoint2D(
-                                    (lastWaypoint.X + fallbackTarget.Value.X) / 2 + wobbleX,
-                                    (lastWaypoint.Z + fallbackTarget.Value.Z) / 2 + wobbleZ);
-
-                                lastWaypoint = nextWaypoint;
-                                state.Waypoints.Add(nextWaypoint);
-
-                                restDist = Distance2D(nextWaypoint, fallbackTarget.Value);
-                            }
+                        if (fallbackTarget.HasValue)
+                        {
+                            ExtendFinalApproachWaypoints(state, fallbackTarget.Value, settings);
                         }
                     }
 
@@ -119,6 +105,56 @@ namespace AlteredDestination.Logic
 
             aimPoint = destination;
             return true;
+        }
+
+        public static void ExtendFinalApproachWaypoints(
+            WaypointRouteState state,
+            Waypoint2D fallbackTarget,
+            WaypointNavigationSettings settings,
+            Random random = null)
+        {
+            if ((state == null) || (state.Waypoints.Count == 0))
+            {
+                return;
+            }
+
+            if (state.CurrentWaypoint < 0)
+            {
+                state.CurrentWaypoint = 0;
+            }
+            else if (state.CurrentWaypoint >= state.Waypoints.Count)
+            {
+                state.CurrentWaypoint = state.Waypoints.Count - 1;
+            }
+
+            Waypoint2D lastWaypoint = state.Waypoints[state.CurrentWaypoint];
+            float restDist = Distance2D(lastWaypoint, fallbackTarget);
+            if (restDist > 1000.0f)
+            {
+                state.CurrentWaypoint += 1; // increment to next to prevent missile trying to loopdiloop back
+            }
+
+            Random rnd = random ?? new Random();
+            int wobbleRange = Math.Max(settings.WobbleRange, 0);
+            while (restDist > 1000.0f)
+            {
+                int wobbleX = 0;
+                int wobbleZ = 0;
+                if ((settings.WobbleActivationDistance > 0.0f) && ((restDist / 2.0f) < settings.WobbleActivationDistance) && (wobbleRange > 0))
+                {
+                    wobbleX = rnd.Next(-wobbleRange, wobbleRange); // random wobble to evade gunfire
+                    wobbleZ = rnd.Next(-wobbleRange, wobbleRange);
+                }
+
+                Waypoint2D nextWaypoint = new Waypoint2D(
+                    ((lastWaypoint.X + fallbackTarget.X) / 2.0d) + wobbleX,
+                    ((lastWaypoint.Z + fallbackTarget.Z) / 2.0d) + wobbleZ);
+
+                lastWaypoint = nextWaypoint;
+                state.Waypoints.Add(nextWaypoint);
+
+                restDist = Distance2D(nextWaypoint, fallbackTarget);
+            }
         }
 
         private static bool TryGetNextTarget(WaypointRouteState state, Waypoint2D? fallbackTarget, out Waypoint2D target)

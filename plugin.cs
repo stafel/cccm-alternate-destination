@@ -29,6 +29,8 @@ namespace AlteredDestination
         public static ConfigEntry<bool> DoJink;
         public static ConfigEntry<bool> DoTopattack;
         public static ConfigEntry<int> WaypointSteps;
+        public static ConfigEntry<float> WobbleActivationDistance;
+        public static ConfigEntry<int> WobbleRange;
         public static ConfigEntry<bool> DebugOutput;
 
         private void Awake()
@@ -42,6 +44,8 @@ namespace AlteredDestination
             DoTopattack = Config.Bind("General", "Top attack popup maneuver in terminal approach", false, "Off (set as default) = No top attack, On = Top attack popup");
             //WaypointRadius = Config.Bind("General", "Waypoint radius", 300f, new ConfigDescription("Distance to waypoint to switch to next one", new AcceptableValueRange<float>(260f, 2600f)));
             WaypointSteps = Config.Bind("General", "Waypoint steps", 5, new ConfigDescription("Number of smoothing steps to do on a waypoint", new AcceptableValueRange<int>(1, 20)));
+            WobbleActivationDistance = Config.Bind("General", "Wobble activation distance", 5000.0f, new ConfigDescription("Enable random wobble when half of the remaining distance to target is below this value.", new AcceptableValueRange<float>(0.0f, 50000.0f)));
+            WobbleRange = Config.Bind("General", "Wobble range", 500, new ConfigDescription("Random wobble offset range on X/Z while leading in (generated between -range and +range).", new AcceptableValueRange<int>(0, 5000)));
             DebugOutput = Config.Bind("General", "Debug logging", true);
 
             var harmony = new Harmony("com.checkpointcharlie.cruisemissile");
@@ -413,7 +417,9 @@ namespace AlteredDestination
 
                 WaypointNavigationSettings settings = new WaypointNavigationSettings(
                     waypointRadius,
-                    AlteredDestinationPlugin.WaypointSteps.Value);
+                    AlteredDestinationPlugin.WaypointSteps.Value,
+                    AlteredDestinationPlugin.WobbleActivationDistance.Value,
+                    AlteredDestinationPlugin.WobbleRange.Value);
 
                 if ((targetWaypoint != null) && (targetWaypoint.HasValue)) {
                     AlteredDestinationPlugin.Debug($"Target waypoint {targetWaypoint.Value.X}, {targetWaypoint.Value.Z}");

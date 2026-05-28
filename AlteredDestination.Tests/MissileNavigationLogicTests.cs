@@ -4,6 +4,21 @@ namespace AlteredDestination.Tests;
 
 public class MissileNavigationLogicTests
 {
+    private sealed class FixedRandom : Random
+    {
+        private readonly int _fixedValue;
+
+        public FixedRandom(int fixedValue)
+        {
+            _fixedValue = fixedValue;
+        }
+
+        public override int Next(int minValue, int maxValue)
+        {
+            return Math.Clamp(_fixedValue, minValue, maxValue - 1);
+        }
+    }
+
     [Fact]
     public void TryComputeAim_ReturnsFalse_WhenNoWaypoints()
     {
@@ -131,5 +146,51 @@ public class MissileNavigationLogicTests
             out _);
 
         Assert.False(result);
+    }
+
+    [Fact]
+    public void ExtendFinalApproachWaypoints_AddsLeadInWaypoints_WhenDistanceIsLarge()
+    {
+        var state = new WaypointRouteState
+        {
+            CurrentWaypoint = 0
+        };
+        state.Waypoints.Add(new Waypoint2D(0d, 0d));
+
+        MissileNavigationLogic.ExtendFinalApproachWaypoints(
+            state,
+            new Waypoint2D(5000d, 0d),
+            new WaypointNavigationSettings(waypointRadius: 50f, preWaypointCounter: 2, wobbleActivationDistance: 0f, wobbleRange: 500),
+            new FixedRandom(0));
+
+        Assert.True(state.CurrentWaypoint > 0);
+        Assert.True(state.Waypoints.Count > 1);
+        Assert.InRange(Distance(state.Waypoints[^1], new Waypoint2D(5000d, 0d)), 0f, 1000f);
+    }
+
+    [Fact]
+    public void ExtendFinalApproachWaypoints_UsesConfiguredWobbleSettings()
+    {
+        var state = new WaypointRouteState
+        {
+            CurrentWaypoint = 0
+        };
+        state.Waypoints.Add(new Waypoint2D(0d, 0d));
+
+        MissileNavigationLogic.ExtendFinalApproachWaypoints(
+            state,
+            new Waypoint2D(6000d, 0d),
+            new WaypointNavigationSettings(waypointRadius: 50f, preWaypointCounter: 2, wobbleActivationDistance: 5000f, wobbleRange: 500),
+            new FixedRandom(123));
+
+        Assert.Equal(3123d, state.Waypoints[1].X);
+        Assert.Equal(123d, state.Waypoints[1].Z);
+    }
+
+    private static float Distance(Waypoint2D from, Waypoint2D to)
+    {
+        var dx = (float)(from.X - to.X);
+        var dz = (float)(from.Z - to.Z);
+        return MathF.Sqrt((dx * dx) + (dz * dz));
     }
 }
