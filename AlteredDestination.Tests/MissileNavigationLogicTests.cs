@@ -15,7 +15,17 @@ public class MissileNavigationLogicTests
 
         public override int Next(int minValue, int maxValue)
         {
-            return Math.Clamp(_fixedValue, minValue, maxValue - 1);
+            if (_fixedValue < minValue)
+            {
+                return minValue;
+            }
+
+            if (_fixedValue >= maxValue)
+            {
+                return maxValue - 1;
+            }
+
+            return _fixedValue;
         }
     }
 
@@ -183,7 +193,7 @@ public class MissileNavigationLogicTests
             new WaypointNavigationSettings(waypointRadius: 50f, preWaypointCounter: 2, wobbleActivationDistance: 5000f, wobbleRange: 500),
             new FixedRandom(123));
 
-        Assert.Equal(3123d, state.Waypoints[1].X);
+        Assert.Equal((6000d / 2d) + 123d, state.Waypoints[1].X);
         Assert.Equal(123d, state.Waypoints[1].Z);
     }
 
