@@ -181,5 +181,67 @@ namespace AlteredDestination.Logic
             double dz = from.Z - to.Z;
             return (float)Math.Sqrt((dx * dx) + (dz * dz));
         }
+
+        /// <summary>
+        /// Returns an unsigned bend angle in degrees (0 = straight, 180 full turn)
+        /// </summary>
+        public static double BendAngle(Waypoint2D A, Waypoint2D B, Waypoint2D C) 
+        {
+            Waypoint2D vecAB = new Waypoint2D(A.X-B.X, A.Z-B.Z);
+            Waypoint2D vecBC = new Waypoint2D(C.X-B.X, C.Z-B.Z);
+            double dotProduct = vecAB.X * vecBC.X + vecAB.Z * vecBC.Z;
+            double crossProduct = vecAB.X * vecBC.Z - vecAB.Z * vecBC.X;
+            return Math.Abs(Math.Abs(Math.Atan2(crossProduct, dotProduct) * (180.0f / Math.PI))-180.0f);
+        }
+
+        public static Waypoint2D Midpoint(Waypoint2D A, Waypoint2D B) 
+        {
+            return new Waypoint2D((A.X + B.X) / 2, (A.Z + B.Z) / 2);
+        }
+
+        public static Waypoint2D Midpoint(Waypoint2D A, Waypoint2D B, Waypoint2D C) 
+        {
+            return new Waypoint2D((A.X + B.X + C.X) / 3, (A.Z + B.Z + C.Z) / 3);
+        }
+
+        public static Waypoint2D MidpointUnderBendAngle(Waypoint2D A, Waypoint2D B, Waypoint2D C, double maxAngle)
+        {
+            int maxRuns = 10;
+            Waypoint2D midpoint = B;
+            while (BendAngle(A, midpoint, C) > maxAngle)
+            {
+                midpoint = Midpoint(A, midpoint, C);
+                maxRuns--;
+                if (maxRuns <= 0) {
+                    break;
+                }
+            }
+            return midpoint;
+        }
+
+        public static List<Waypoint2D> PointsUnderBendAngle(Waypoint2D A, Waypoint2D B, Waypoint2D C, double maxAngle) 
+        {
+            List<Waypoint2D> newPoints = new List<Waypoint2D>();
+
+            if (BendAngle(A, B, C) <= maxAngle) { // quick exit if angle already ok
+                newPoints.Add(B);
+                return newPoints;
+            }
+
+            // split up B into two points between AB and BC
+            // angle between point before A, A, AB should not change, no check needed
+            Waypoint2D AB = Midpoint(A, B, B); // keep the midpoints in one third to the bend
+            Waypoint2D BC = Midpoint(B, B, C);
+
+            if (BendAngle(A, AB, BC) > maxAngle) { // angles are symetric, only one check needed
+                newPoints.AddRange(PointsUnderBendAngle(A, AB, BC, maxAngle));
+                newPoints.AddRange(PointsUnderBendAngle(AB, BC, C, maxAngle)); // they should not cross around with the once before
+            } else {
+                newPoints.Add(AB);
+                newPoints.Add(BC);
+            }
+
+            return newPoints;
+        }
     }
 }
