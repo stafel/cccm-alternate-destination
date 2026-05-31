@@ -279,10 +279,14 @@ namespace AlteredDestination
             // layer's local coordinate space (same space as icon.localPosition).
             // No additional scaling by parent lossyScale is needed.
             GlobalPosition missileGlobal = strikerIcon.unit.GlobalPosition();
-            float dx = (float)(waypoint.X - missileGlobal.x) * metersToPixels;
-            float dz = (float)(waypoint.Z - missileGlobal.z) * metersToPixels;
             Vector3 iconPos = strikerIcon.transform.localPosition;
-            return new Vector3(iconPos.x + dx, iconPos.y + dz, 0f);
+
+            float conversionFactorX = iconPos.x / missileGlobal.x;
+            float conversionFactorY = iconPos.y / missileGlobal.z;
+
+            float dx = (float)(waypoint.X * conversionFactorX);// * metersToPixels;
+            float dz = (float)(waypoint.Z  * conversionFactorY);// * metersToPixels;
+            return new Vector3(dx, dz, 0f);
         }
 
         private static void UpdateLine(UnitMapIcon strikerIcon, WaypointRouteState routeState, float metersToPixels)
