@@ -19,7 +19,7 @@ namespace AlteredDestination
         public bool triedTargettingUnit;
     }
 
-    [BepInPlugin("com.checkpointcharlie.cruisemissile", "Checkpoint Charlie's Cruise Missile (Alternate destination)", "1.4.1")]
+    [BepInPlugin("com.checkpointcharlie.cruisemissile", "Checkpoint Charlie's Cruise Missile (Alternate destination)", "1.4.2")]
     public class AlteredDestinationPlugin : BaseUnityPlugin
     {
         public static ConditionalWeakTable<Missile, OverrideData> MissileWaypoints = new ConditionalWeakTable<Missile, OverrideData>();
