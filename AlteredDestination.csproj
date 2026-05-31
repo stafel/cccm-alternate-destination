@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyName>checkpointchaliescruisemissile</AssemblyName>
-    <Version>1.0.0</Version>
+    <Version>1.4.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
@@ -16,18 +16,7 @@
     <PackageReference Include="BepInEx.Core" Version="5.*" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*" />
     <PackageReference Include="UnityEngine.Modules" Version="2021.3.33" IncludeAssets="compile" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(EnableGameBuild)' == 'true'">
-    <Reference Include="Assembly-CSharp">
-      <HintPath>./Assembly-CSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="Mirage">
-      <HintPath>./Mirage.dll</HintPath>
-    </Reference>
-    <Reference Include="UnitiyEngine.UI">
-      <HintPath>./UnityEngine.UI.dll</HintPath>
-    </Reference>
+    <PackageReference Include="stafelstr.nonuget" Version="1.1.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(EnableGameBuild)' != 'true'">
