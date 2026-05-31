@@ -257,6 +257,8 @@ namespace AlteredDestination
             var icons = __instance.mapIcons;
             if (icons == null) return;
 
+            float metersToPixels = __instance.MetersToPixels();
+
             foreach (UnitMapIcon icon in icons) {
                 if (icon == null || icon.unit == null || !icon.gameObject.activeInHierarchy) continue;
 
@@ -266,20 +268,24 @@ namespace AlteredDestination
                     bool hasValue = AlteredDestinationPlugin.MissileWaypoints.TryGetValue(missileType, out data);
                     if (!hasValue) continue;
 
-                    UpdateLine(icon, data.routeState, __instance.mapScaleProxy);
+                    UpdateLine(icon, data.routeState, metersToPixels);
                 }
             }
         }
 
-        private static Vector3 WaypointToMapPosition(Waypoint2D waypoint, Transform mapTransform)
+        private static Vector3 WaypointToMapPosition(Waypoint2D waypoint, UnitMapIcon strikerIcon, float metersToPixels)
         {
-            GlobalPosition wpGlobal = new GlobalPosition((float)waypoint.X, 0f, (float)waypoint.Z);
-            Vector3 wpWorld = wpGlobal.ToLocalPosition();
-            Vector3 mapLocal = mapTransform.InverseTransformPoint(wpWorld);
-            return new Vector3(mapLocal.x, mapLocal.z, 0f);
+            // Compute waypoint position in icon-layer local space by calculating the
+            // pixel offset from the missile's global position to the waypoint, then
+            // adding it to the icon's known-good local position.
+            GlobalPosition missileGlobal = strikerIcon.unit.GlobalPosition();
+            float dx = (float)(waypoint.X - missileGlobal.x) * metersToPixels;
+            float dz = (float)(waypoint.Z - missileGlobal.z) * metersToPixels;
+            Vector3 iconPos = strikerIcon.transform.localPosition;
+            return new Vector3(iconPos.x + dx, iconPos.y + dz, 0f);
         }
 
-        private static void UpdateLine(UnitMapIcon strikerIcon, WaypointRouteState routeState, Transform mapTransform)
+        private static void UpdateLine(UnitMapIcon strikerIcon, WaypointRouteState routeState, float metersToPixels)
         {
             if (routeState == null || routeState.Waypoints.Count == 0)
             {
@@ -328,10 +334,10 @@ namespace AlteredDestination
                 }
                 else
                 {
-                    startPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i - 1], mapTransform);
+                    startPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i - 1], strikerIcon, metersToPixels);
                 }
 
-                Vector3 endPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i], mapTransform);
+                Vector3 endPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i], strikerIcon, metersToPixels);
 
                 Vector3 diff = endPos - startPos;
                 float distance = diff.magnitude;
