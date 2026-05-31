@@ -17,6 +17,7 @@ namespace AlteredDestination
         public WaypointRouteState routeState;
         public Unit targetUnit;
         public bool triedTargettingUnit;
+        public TerrainAvoidanceState terrainState = new TerrainAvoidanceState();
     }
 
     [BepInPlugin("com.checkpointcharlie.cruisemissile", "Checkpoint Charlie's Cruise Missile (Alternate destination)", "1.4.2")]
@@ -423,6 +424,11 @@ namespace AlteredDestination
     [HarmonyPatch(typeof(Missile), "SetAimpoint")]
     public static class Missile_SetAimpoint_Patch
     {
+        // Terrain raycast constants (matching reference OpticalSeekerCruiseMissile values)
+        private const float RaycastHeight = 5000f;
+        private const int TerrainLayerMask = 8256;
+        private const float MinVelocitySqr = 0.01f;
+
         private static FieldInfo seekerField = AccessTools.Field(typeof(Missile), "seeker");
         private static FieldInfo terminalModeField = AccessTools.Field(typeof(OpticalSeekerCruiseMissile), "terminalMode");
         private static FieldInfo altitudeTargetField = AccessTools.Field(typeof(OpticalSeekerCruiseMissile), "altitudeTarget");
@@ -655,12 +661,57 @@ namespace AlteredDestination
                 aimPoint.x = (float)destination.X;
                 aimPoint.z = (float)destination.Z;
 
-                // try to leave Y completely vanilla so the cruise radar can keep it safely above the water.
-                /*if (aimPoint.y < AlteredDestinationPlugin.MinimumAltitude.Value) {
-                    aimPoint.y = AlteredDestinationPlugin.MinimumAltitude.Value;
-                }*/
+                // Terrain avoidance: compute safe Y using lookahead raycasting
+                // (modeled after OpticalSeekerCruiseMissile.TerrainWaypoint)
+                float altTarget = (float)(altitudeTargetField?.GetValue(cSeeker) ?? AlteredDestinationPlugin.CruiseAltitude.Value);
+                float missileAltitude = (float)currentPos.y;
+                float speed = __instance.speed;
+                float lookaheadDist = TerrainAvoidanceLogic.ComputeLookaheadDistance(speed);
+
+                // Compute lookahead point in the missile's forward direction (XZ only)
+                Vector3 velocity = __instance.rb.velocity;
+                Vector3 flatVel = new Vector3(velocity.x, 0f, velocity.z);
+                if (flatVel.sqrMagnitude < MinVelocitySqr)
+                {
+                    flatVel = __instance.transform.forward;
+                    flatVel.y = 0f;
+                }
+                Vector3 lookaheadPoint = __instance.transform.position + flatVel.normalized * lookaheadDist;
+                lookaheadPoint.y = Datum.LocalSeaY;
+
+                // Raycast down to find terrain height at lookahead point
+                float terrainHeightAtLookahead = Datum.LocalSeaY;
+                if (Physics.Linecast(lookaheadPoint + Vector3.up * RaycastHeight, lookaheadPoint - Vector3.up * RaycastHeight, out var terrainHit, TerrainLayerMask))
+                {
+                    terrainHeightAtLookahead = Mathf.Max(terrainHit.point.ToGlobalPosition().y, Datum.LocalSeaY);
+                }
+
+                // Check if path ahead is obstructed
+                Vector3 desiredRelative = (lookaheadPoint + Vector3.up * altTarget) - __instance.transform.position;
+                bool obstructed = Physics.Linecast(
+                    __instance.transform.position - Vector3.up * 2f,
+                    __instance.transform.position + desiredRelative * 0.9f,
+                    TerrainLayerMask);
+
+                float radarAlt = __instance.radarAlt;
+                float verticalVel = velocity.y;
+
+                var terrainInput = new TerrainAvoidanceLogic.TerrainInput(
+                    missileAltitude,
+                    radarAlt,
+                    verticalVel,
+                    speed,
+                    terrainHeightAtLookahead,
+                    obstructed);
+
+                aimPoint.y = TerrainAvoidanceLogic.ComputeTerrainAvoidanceY(
+                    data.terrainState,
+                    terrainInput,
+                    altTarget,
+                    (float)Datum.LocalSeaY);
+
                 targetVel = Vector3.zero;
-                AlteredDestinationPlugin.Debug($"Missile waypoint {aimPoint.x} {aimPoint.z}");
+                AlteredDestinationPlugin.Debug($"Missile waypoint {aimPoint.x} {aimPoint.z} y={aimPoint.y} radarAlt={radarAlt} terrainAhead={terrainHeightAtLookahead}");
             }
 
             ApplyCounterPitch(__instance);
