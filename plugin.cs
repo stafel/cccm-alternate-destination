@@ -33,6 +33,7 @@ namespace AlteredDestination
         public static ConfigEntry<float> WobbleActivationDistance;
         public static ConfigEntry<int> WobbleRange;
         public static ConfigEntry<bool> DebugOutput;
+        public static ConfigEntry<bool> ShowPath;
         public static ConfigEntry<double> MaxBendAngle;
 
         private void Awake()
@@ -49,6 +50,7 @@ namespace AlteredDestination
             WobbleActivationDistance = Config.Bind("General", "Wobble activation distance", 5000.0f, new ConfigDescription("Enable random wobble when midpoint distance to target falls below this threshold.", new AcceptableValueRange<float>(0.0f, 50000.0f)));
             WobbleRange = Config.Bind("General", "Wobble range", 500, new ConfigDescription("Random wobble offset range on X/Z while leading in (generated between -range and +range).", new AcceptableValueRange<int>(0, 5000)));
             MaxBendAngle = Config.Bind("General", "Max bend angle", 40.0, new ConfigDescription("Maximum angle between waypoints compared to a straight line in degrees. Eveything over this will get smoothed out", new AcceptableValueRange<double>(0, 180)));
+            ShowPath = Config.Bind("General", "Display flight path", false, new ConfigDescription("Display flight path of the missile"));
             DebugOutput = Config.Bind("General", "Debug logging", true);
 
             var harmony = new Harmony("com.checkpointcharlie.cruisemissile");
@@ -268,7 +270,11 @@ namespace AlteredDestination
                     bool hasValue = AlteredDestinationPlugin.MissileWaypoints.TryGetValue(missileType, out data);
                     if (!hasValue) continue;
 
-                    UpdateLine(icon, data.routeState, metersToPixels);
+                    if (AlteredDestinationPlugin.ShowPath.Value){
+                        UpdateLine(icon, data.routeState, metersToPixels);
+                    } else {
+                        HideLines(icon);
+                    }
                 }
             }
         }
