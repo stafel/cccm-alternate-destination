@@ -7,8 +7,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
-    <EnableGameBuild Condition="Exists('Assembly-CSharp.dll') and Exists('Mirage.dll')">true</EnableGameBuild>
-    <EnableGameBuild Condition="'$(EnableGameBuild)' == ''">false</EnableGameBuild>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,11 +15,6 @@
     <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*" />
     <PackageReference Include="UnityEngine.Modules" Version="2021.3.33" IncludeAssets="compile" />
     <PackageReference Include="stafelstr.nonuget" Version="1.1.0" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(EnableGameBuild)' != 'true'">
-    <Compile Remove="plugin.cs" />
-    <None Include="plugin.cs" />
   </ItemGroup>
 
   <ItemGroup>
