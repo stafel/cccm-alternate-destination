@@ -3,6 +3,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
+using UnityEngine.UI;
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Reflection;
@@ -54,9 +55,20 @@ namespace AlteredDestination
             harmony.PatchAll();
             Logger.LogInfo("Checkpoint Charlie's Cruise Missile Mod Loaded!");
 
-            /*foreach (var f in AccessTools.GetFieldNames(typeof(OpticalSeekerCruiseMissile))) {
-                Logger.LogInfo(f);
-            }*/
+            foreach (var f in AccessTools.GetFieldNames(typeof(DynamicMap))) {
+                FieldInfo field = AccessTools.Field(typeof(DynamicMap), f);
+                Type fieldType = field.FieldType;
+                Logger.LogInfo($"field: {f} {fieldType.FullName}");
+            }
+
+            foreach (var m in AccessTools.GetMethodNames(typeof(DynamicMap))) {
+                var method = AccessTools.Method(typeof(DynamicMap), m);
+                var args = string.Join(", ", System.Array.ConvertAll(
+                    method.GetParameters(), 
+                    p => $"{p.ParameterType.Name} {p.Name}"
+                ));
+                Logger.LogInfo($"method: {m}({args}) returns {method.ReturnType.Name}");
+            }
         }
 
         public static void Log(string message)
@@ -232,6 +244,103 @@ namespace AlteredDestination
                     }
                 }
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(DynamicMap), "Update")]
+    public class DynamicMap_Update_Patch
+    {
+        private static Dictionary<UnitMapIcon, GameObject> lines = new Dictionary<UnitMapIcon, GameObject>();
+
+        public static void Postfix(DynamicMap __instance)
+        {
+            var icons = __instance.mapIcons;
+            if (icons == null) return;
+
+            foreach (UnitMapIcon icon in icons) {
+                if (icon == null || icon.unit == null || !icon.gameObject.activeInHierarchy) continue;
+
+                if (icon.unit is Missile) {
+                    var missileType = icon.unit as Missile;
+                    OverrideData data;
+                    bool hasValue = AlteredDestinationPlugin.MissileWaypoints.TryGetValue(missileType, out data);
+                    if (!hasValue) continue;
+
+                    UpdateLine(icon, data.routeState, __instance.mapScaleProxy); // __instance.mapScaleCenter
+                }
+            }
+        }
+
+        private static void UpdateLine(UnitMapIcon strikerIcon, WaypointRouteState routeState, Transform mapTransform)
+        {
+            if (!lines.TryGetValue(strikerIcon, out var lineObj) || lineObj == null)
+            {
+                lineObj = CreateLine(strikerIcon.transform.parent);
+                lines[strikerIcon] = lineObj;
+            }
+
+            lineObj.SetActive(true);
+            var img = lineObj.GetComponent<Image>();
+            img.color = new Color(0f, 1f, 1f, 0.8f); // Cyan
+
+            var rect = lineObj.GetComponent<RectTransform>();
+            
+            //__instance.mapTransform
+
+            Waypoint2D currentPos = routeState.Waypoints[routeState.CurrentWaypoint];
+            Transform mapParent = strikerIcon.transform.parent;
+            // Positions are in local space of the icon layer
+            Vector3 startPos = strikerIcon.transform.localPosition;
+            //GlobalPosition waypoint = new GlobalPosition((float)currentPos.X, (float)currentPos.Z, 0f);
+            Vector3 endPos = new Vector3((float)currentPos.X / 90.0f, (float)currentPos.Z / 90.0f, 0f);
+            //waypoint.ToLocalPosition(); //mapTransform.TransformPoint(new Vector3((float)currentPos.X, (float)currentPos.Z, 0f)); //mapScaleProxy // InverseTransformPoint //new Vector3((float)currentPos.X / 100.0f, (float)currentPos.Z / 100.0f, 0f);
+
+            AlteredDestinationPlugin.Log($"Display startpos {startPos.x}, {startPos.y}, {startPos.z}");
+            AlteredDestinationPlugin.Log($"Display waypoint {currentPos.X}, {currentPos.Z}");
+            AlteredDestinationPlugin.Log($"Display endpos {endPos.x}, {endPos.y}, {endPos.z}");
+            
+            Vector3 diff = endPos - startPos;
+            float distance = diff.magnitude;
+            
+            if (distance < 5f)
+            {
+                lineObj.SetActive(false);
+                return;
+            }
+
+            float angle = Mathf.Atan2(diff.y, diff.x) * Mathf.Rad2Deg;
+
+            rect.localPosition = startPos;
+            rect.localRotation = Quaternion.Euler(0, 0, angle);
+            rect.sizeDelta = new Vector2(distance, 1.0f); // set thickness
+        }
+
+        public static void ExternalCleanup(UnitMapIcon icon)
+        {
+            if (lines.TryGetValue(icon, out var lineObj) && lineObj != null)
+            {
+                UnityEngine.Object.Destroy(lineObj);
+            }
+            lines.Remove(icon);
+        }
+
+        private static GameObject CreateLine(Transform parent)
+        {
+            var go = new GameObject("StrikerTargetLine");
+            go.transform.SetParent(parent, false);
+            go.transform.SetAsLastSibling(); 
+            
+            var img = go.AddComponent<Image>();
+            img.color = new Color(1f, 0f, 0f, 0.8f);
+            img.raycastTarget = false; 
+            
+            var rect = go.GetComponent<RectTransform>();
+            // Use center anchor so that localPosition matches the Map icons' localPosition
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0, 0.5f);
+            
+            return go;
         }
     }
 
