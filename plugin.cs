@@ -251,13 +251,21 @@ namespace AlteredDestination
     public class DynamicMap_Update_Patch
     {
         private static Dictionary<UnitMapIcon, List<GameObject>> lines = new Dictionary<UnitMapIcon, List<GameObject>>();
+        private static FieldInfo mapDimensionField = AccessTools.Field(typeof(DynamicMap), "mapDimension");
+        private static FieldInfo mapScaleCurrentField = AccessTools.Field(typeof(DynamicMap), "mapScaleCurrent");
+        private static bool loggedScaleOnce = false;
 
         public static void Postfix(DynamicMap __instance)
         {
             var icons = __instance.mapIcons;
             if (icons == null) return;
 
+            // Compute the correct meters-to-local conversion factor.
+            // MetersToPixels() returns a base pixel factor, but the icon layer may
+            // be scaled by mapScaleCurrent (the map zoom). Multiply to match.
             float metersToPixels = __instance.MetersToPixels();
+            float mapScaleCurrent = (float)mapScaleCurrentField.GetValue(__instance);
+            float metersToLocal = metersToPixels * mapScaleCurrent;
 
             foreach (UnitMapIcon icon in icons) {
                 if (icon == null || icon.unit == null || !icon.gameObject.activeInHierarchy) continue;
@@ -268,24 +276,32 @@ namespace AlteredDestination
                     bool hasValue = AlteredDestinationPlugin.MissileWaypoints.TryGetValue(missileType, out data);
                     if (!hasValue) continue;
 
-                    UpdateLine(icon, data.routeState, metersToPixels);
+                    if (!loggedScaleOnce)
+                    {
+                        loggedScaleOnce = true;
+                        float mapDimension = (float)mapDimensionField.GetValue(__instance);
+                        float parentLossyScale = icon.transform.parent.lossyScale.x;
+                        float parentLocalScale = icon.transform.parent.localScale.x;
+                        AlteredDestinationPlugin.Log($"[LineDebug] MetersToPixels={metersToPixels}, mapScaleCurrent={mapScaleCurrent}, mapDimension={mapDimension}, parentLossyScale={parentLossyScale}, parentLocalScale={parentLocalScale}, metersToLocal={metersToLocal}, iconLocalPos={icon.transform.localPosition}");
+                    }
+
+                    UpdateLine(icon, data.routeState, metersToLocal);
                 }
             }
         }
 
-        private static Vector3 WaypointToMapPosition(Waypoint2D waypoint, UnitMapIcon strikerIcon, float metersToPixels)
+        private static Vector3 WaypointToMapPosition(Waypoint2D waypoint, UnitMapIcon strikerIcon, float metersToLocal)
         {
-            // MetersToPixels() already returns the conversion factor in the icon
-            // layer's local coordinate space (same space as icon.localPosition).
-            // No additional scaling by parent lossyScale is needed.
+            // metersToLocal converts world-meter offsets into the icon layer's local
+            // coordinate space (same space as icon.transform.localPosition).
             GlobalPosition missileGlobal = strikerIcon.unit.GlobalPosition();
-            float dx = (float)(waypoint.X - missileGlobal.x) * metersToPixels;
-            float dz = (float)(waypoint.Z - missileGlobal.z) * metersToPixels;
+            float dx = (float)(waypoint.X - missileGlobal.x) * metersToLocal;
+            float dz = (float)(waypoint.Z - missileGlobal.z) * metersToLocal;
             Vector3 iconPos = strikerIcon.transform.localPosition;
             return new Vector3(iconPos.x + dx, iconPos.y + dz, 0f);
         }
 
-        private static void UpdateLine(UnitMapIcon strikerIcon, WaypointRouteState routeState, float metersToPixels)
+        private static void UpdateLine(UnitMapIcon strikerIcon, WaypointRouteState routeState, float metersToLocal)
         {
             if (routeState == null || routeState.Waypoints.Count == 0)
             {
@@ -334,10 +350,10 @@ namespace AlteredDestination
                 }
                 else
                 {
-                    startPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i - 1], strikerIcon, metersToPixels);
+                    startPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i - 1], strikerIcon, metersToLocal);
                 }
 
-                Vector3 endPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i], strikerIcon, metersToPixels);
+                Vector3 endPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i], strikerIcon, metersToLocal);
 
                 Vector3 diff = endPos - startPos;
                 float distance = diff.magnitude;
