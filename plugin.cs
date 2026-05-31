@@ -196,7 +196,7 @@ namespace AlteredDestination
                                         data.routeState.Waypoints[data.routeState.Waypoints.Count-2],
                                         data.routeState.Waypoints[data.routeState.Waypoints.Count-1],
                                         newestWp,
-                                        90.0
+                                        AlteredDestinationPlugin.MaxBendAngle.Value
                                     );
                                     data.routeState.Waypoints.Remove(data.routeState.Waypoints[data.routeState.Waypoints.Count-1]); // remove previously existing midpoint
                                     data.routeState.Waypoints.AddRange(bendPoints);
@@ -273,19 +273,16 @@ namespace AlteredDestination
             }
         }
 
-        private static Vector3 WaypointToMapPosition(Waypoint2D waypoint, UnitMapIcon strikerIcon, float metersToPixels)
+        private static Vector3 WaypointToMapPosition(Waypoint2D waypoint, UnitMapIcon strikerIcon)
         {
-            // MetersToPixels() already returns the conversion factor in the icon
-            // layer's local coordinate space (same space as icon.localPosition).
-            // No additional scaling by parent lossyScale is needed.
             GlobalPosition missileGlobal = strikerIcon.unit.GlobalPosition();
             Vector3 iconPos = strikerIcon.transform.localPosition;
 
             float conversionFactorX = iconPos.x / missileGlobal.x;
             float conversionFactorY = iconPos.y / missileGlobal.z;
 
-            float dx = (float)(waypoint.X * conversionFactorX);// * metersToPixels;
-            float dz = (float)(waypoint.Z  * conversionFactorY);// * metersToPixels;
+            float dx = (float)(waypoint.X * conversionFactorX);
+            float dz = (float)(waypoint.Z  * conversionFactorY);
             return new Vector3(dx, dz, 0f);
         }
 
@@ -338,10 +335,10 @@ namespace AlteredDestination
                 }
                 else
                 {
-                    startPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i - 1], strikerIcon, metersToPixels);
+                    startPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i - 1], strikerIcon);
                 }
 
-                Vector3 endPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i], strikerIcon, metersToPixels);
+                Vector3 endPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i], strikerIcon);
 
                 Vector3 diff = endPos - startPos;
                 float distance = diff.magnitude;
