@@ -250,7 +250,7 @@ namespace AlteredDestination
     [HarmonyPatch(typeof(DynamicMap), "Update")]
     public class DynamicMap_Update_Patch
     {
-        private static Dictionary<UnitMapIcon, GameObject> lines = new Dictionary<UnitMapIcon, GameObject>();
+        private static Dictionary<UnitMapIcon, List<GameObject>> lines = new Dictionary<UnitMapIcon, List<GameObject>>();
 
         public static void Postfix(DynamicMap __instance)
         {
@@ -266,60 +266,114 @@ namespace AlteredDestination
                     bool hasValue = AlteredDestinationPlugin.MissileWaypoints.TryGetValue(missileType, out data);
                     if (!hasValue) continue;
 
-                    UpdateLine(icon, data.routeState, __instance.mapScaleProxy); // __instance.mapScaleCenter
+                    UpdateLine(icon, data.routeState, __instance.mapScaleProxy);
                 }
             }
         }
 
+        private static Vector3 WaypointToMapPosition(Waypoint2D waypoint, Transform mapTransform)
+        {
+            GlobalPosition wpGlobal = new GlobalPosition((float)waypoint.X, 0f, (float)waypoint.Z);
+            Vector3 wpWorld = wpGlobal.ToLocalPosition();
+            Vector3 mapLocal = mapTransform.InverseTransformPoint(wpWorld);
+            return new Vector3(mapLocal.x, mapLocal.z, 0f);
+        }
+
         private static void UpdateLine(UnitMapIcon strikerIcon, WaypointRouteState routeState, Transform mapTransform)
         {
-            if (!lines.TryGetValue(strikerIcon, out var lineObj) || lineObj == null)
+            if (routeState == null || routeState.Waypoints.Count == 0)
             {
-                lineObj = CreateLine(strikerIcon.transform.parent);
-                lines[strikerIcon] = lineObj;
-            }
-
-            lineObj.SetActive(true);
-            var img = lineObj.GetComponent<Image>();
-            img.color = new Color(0f, 1f, 1f, 0.8f); // Cyan
-
-            var rect = lineObj.GetComponent<RectTransform>();
-            
-            //__instance.mapTransform
-
-            Waypoint2D currentPos = routeState.Waypoints[routeState.CurrentWaypoint];
-            Transform mapParent = strikerIcon.transform.parent;
-            // Positions are in local space of the icon layer
-            Vector3 startPos = strikerIcon.transform.localPosition;
-            //GlobalPosition waypoint = new GlobalPosition((float)currentPos.X, (float)currentPos.Z, 0f);
-            Vector3 endPos = new Vector3((float)currentPos.X / 90.0f, (float)currentPos.Z / 90.0f, 0f);
-            //waypoint.ToLocalPosition(); //mapTransform.TransformPoint(new Vector3((float)currentPos.X, (float)currentPos.Z, 0f)); //mapScaleProxy // InverseTransformPoint //new Vector3((float)currentPos.X / 100.0f, (float)currentPos.Z / 100.0f, 0f);
-
-            AlteredDestinationPlugin.Log($"Display startpos {startPos.x}, {startPos.y}, {startPos.z}");
-            AlteredDestinationPlugin.Log($"Display waypoint {currentPos.X}, {currentPos.Z}");
-            AlteredDestinationPlugin.Log($"Display endpos {endPos.x}, {endPos.y}, {endPos.z}");
-            
-            Vector3 diff = endPos - startPos;
-            float distance = diff.magnitude;
-            
-            if (distance < 5f)
-            {
-                lineObj.SetActive(false);
+                HideLines(strikerIcon);
                 return;
             }
 
-            float angle = Mathf.Atan2(diff.y, diff.x) * Mathf.Rad2Deg;
+            int currentIdx = routeState.CurrentWaypoint;
+            if (currentIdx < 0) currentIdx = 0;
+            if (currentIdx >= routeState.Waypoints.Count) currentIdx = routeState.Waypoints.Count - 1;
 
-            rect.localPosition = startPos;
-            rect.localRotation = Quaternion.Euler(0, 0, angle);
-            rect.sizeDelta = new Vector2(distance, 1.0f); // set thickness
+            int segmentCount = routeState.Waypoints.Count - currentIdx;
+
+            if (!lines.TryGetValue(strikerIcon, out var lineList) || lineList == null)
+            {
+                lineList = new List<GameObject>();
+                lines[strikerIcon] = lineList;
+            }
+
+            // Ensure we have enough line objects
+            while (lineList.Count < segmentCount)
+            {
+                lineList.Add(CreateLine(strikerIcon.transform.parent));
+            }
+
+            // Hide extra lines
+            for (int i = segmentCount; i < lineList.Count; i++)
+            {
+                if (lineList[i] != null) lineList[i].SetActive(false);
+            }
+
+            // Draw segments: icon → wp[current], wp[current] → wp[current+1], ...
+            for (int i = 0; i < segmentCount; i++)
+            {
+                GameObject lineObj = lineList[i];
+                if (lineObj == null)
+                {
+                    lineObj = CreateLine(strikerIcon.transform.parent);
+                    lineList[i] = lineObj;
+                }
+
+                Vector3 startPos;
+                if (i == 0)
+                {
+                    startPos = strikerIcon.transform.localPosition;
+                }
+                else
+                {
+                    startPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i - 1], mapTransform);
+                }
+
+                Vector3 endPos = WaypointToMapPosition(routeState.Waypoints[currentIdx + i], mapTransform);
+
+                Vector3 diff = endPos - startPos;
+                float distance = diff.magnitude;
+
+                if (distance < 1f)
+                {
+                    lineObj.SetActive(false);
+                    continue;
+                }
+
+                lineObj.SetActive(true);
+                var img = lineObj.GetComponent<Image>();
+                img.color = new Color(0f, 1f, 1f, 0.8f); // Cyan
+
+                var rect = lineObj.GetComponent<RectTransform>();
+                float angle = Mathf.Atan2(diff.y, diff.x) * Mathf.Rad2Deg;
+
+                rect.localPosition = startPos;
+                rect.localRotation = Quaternion.Euler(0, 0, angle);
+                rect.sizeDelta = new Vector2(distance, 1.0f);
+            }
+        }
+
+        private static void HideLines(UnitMapIcon icon)
+        {
+            if (lines.TryGetValue(icon, out var lineList) && lineList != null)
+            {
+                foreach (var line in lineList)
+                {
+                    if (line != null) line.SetActive(false);
+                }
+            }
         }
 
         public static void ExternalCleanup(UnitMapIcon icon)
         {
-            if (lines.TryGetValue(icon, out var lineObj) && lineObj != null)
+            if (lines.TryGetValue(icon, out var lineList) && lineList != null)
             {
-                UnityEngine.Object.Destroy(lineObj);
+                foreach (var line in lineList)
+                {
+                    if (line != null) UnityEngine.Object.Destroy(line);
+                }
             }
             lines.Remove(icon);
         }
