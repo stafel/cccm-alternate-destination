@@ -136,24 +136,68 @@
 [Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] method: ClearIncomingMissile(Unit missileUnit) returns Void
 [Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] method: GetOrAddIcon(Unit unit) returns UnitMapIcon
 [Message:   BepInEx] Chainloader startup complete
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-40779.3,-200.0,31613.7)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-41654.3,0.0,30360.1)
 [Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Adding waypoint directly
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-42040.9,0.0,29054.5)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-45945.5,0.0,25882.3)
 [Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Adding waypoint directly
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-44600.2,0.0,26459.2)
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Debending mid waypoint -44600.16796875, 26459.171875 to -44600.16796875 26459.171875
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-50266.1,0.0,4495.6)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-49428.3,0.0,17610.7)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Debending mid waypoint -49428.3046875, 17610.701171875 to -49428.3046875 17610.701171875
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-50734.3,0.0,756.6)
 [Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-51996.3,0.0,-6390.2)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-44848.2,0.0,-18942.5)
 [Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-49004.5,0.0,-14320.3)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-36514.4,-199.7,-18631.5)
 [Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-43922.1,0.0,-16266.8)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-29611.1,-199.6,-14589.0)
 [Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-37433.8,-199.9,-17780.7)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-29735.5,-199.0,-9240.5)
 [Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-32207.2,-194.4,-15798.2)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-33031.6,-195.8,-7001.6)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint cleared for missile.
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-52619.8,0.0,-9485.9)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Adding waypoint directly
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-48577.3,0.0,-20680.5)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Adding waypoint directly
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-42731.2,0.0,-23976.7)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Debending mid waypoint -42731.21484375, -23976.697265625 to -42523.90625 -21136.5813802083
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-36263.2,-199.9,-18752.5)
 [Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-30008.4,-198.2,-10283.2)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-29608.6,-199.6,-14585.7)
 [Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
-[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-32207.2,-195.5,-7147.2)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-27867.3,-199.8,-8864.0)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-32967.0,-197.6,-1214.3)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-38564.3,-200.0,-1214.3)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-41611.8,0.0,-11476.0)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-38502.1,-200.0,-16451.4)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-30044.0,-190.7,-12222.4)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 3
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-43912.9,0.0,-9796.9)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-58465.9,0.0,-9299.3)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint cleared for missile.
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-59460.9,0.0,-13404.0)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Adding waypoint directly
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-53179.5,0.0,-20369.5)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Adding waypoint directly
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-36014.5,-159.8,-23230.4)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Debending mid waypoint -36014.4453125, -23230.388671875 to -38439.9446614583 -18358.6585286458
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-26125.9,-199.6,-11476.0)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-27431.9,-200.0,-7122.6)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-31972.0,-199.8,-3826.4)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 1
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-49634.6,0.0,-15891.7)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 2
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-43042.2,0.0,-20369.5)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 3
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-41922.7,0.0,153.9)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 3
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-53490.5,0.0,-19747.6)
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Splitting mid waypoint into 3
+[Info   :Checkpoint Charlie's Cruise Missile (Alternate destination)] Waypoint assigned to selected missile(s) at Global(-36823.0,-199.8,4320.8)
