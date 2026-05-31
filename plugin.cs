@@ -405,6 +405,15 @@ namespace AlteredDestination
         }
     }
 
+    [HarmonyPatch(typeof(UnitMapIcon), "OnRemoveIcon")]
+    public class UnitMapIcon_OnRemoveIcon_Patch
+    {
+        public static void Prefix(UnitMapIcon __instance)
+        {
+            DynamicMap_Update_Patch.ExternalCleanup(__instance);
+        }
+    }
+
     [HarmonyPatch(typeof(Missile), "SetAimpoint")]
     public static class Missile_SetAimpoint_Patch
     {
