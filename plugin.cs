@@ -275,15 +275,12 @@ namespace AlteredDestination
 
         private static Vector3 WaypointToMapPosition(Waypoint2D waypoint, UnitMapIcon strikerIcon, float metersToPixels)
         {
-            // MetersToPixels() returns screen-pixel scale, but localPosition is in the
-            // icon layer's local coordinate space. Divide by the parent's lossyScale
-            // to convert from pixels to local units.
-            float parentScale = strikerIcon.transform.parent.lossyScale.x;
-            float metersToLocal = metersToPixels / parentScale;
-
+            // MetersToPixels() already returns the conversion factor in the icon
+            // layer's local coordinate space (same space as icon.localPosition).
+            // No additional scaling by parent lossyScale is needed.
             GlobalPosition missileGlobal = strikerIcon.unit.GlobalPosition();
-            float dx = (float)(waypoint.X - missileGlobal.x) * metersToLocal;
-            float dz = (float)(waypoint.Z - missileGlobal.z) * metersToLocal;
+            float dx = (float)(waypoint.X - missileGlobal.x) * metersToPixels;
+            float dz = (float)(waypoint.Z - missileGlobal.z) * metersToPixels;
             Vector3 iconPos = strikerIcon.transform.localPosition;
             return new Vector3(iconPos.x + dx, iconPos.y + dz, 0f);
         }
