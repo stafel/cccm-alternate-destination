@@ -23,11 +23,11 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore AlteredDestination.Tests/AlteredDestination.Tests.csproj
 
-      - name: Build
-        run: dotnet build AlteredDestination.csproj --configuration Release --no-restore
-
       - name: Run unit tests
         run: dotnet test AlteredDestination.Tests/AlteredDestination.Tests.csproj --configuration Release
+
+      - name: Build
+        run: dotnet build AlteredDestination.csproj --configuration Release --no-restore
 
       - name: Create assembly directory
         run: mkdir assembly
