@@ -145,4 +145,47 @@ public class TerrainAvoidanceLogicTests
         // Same as flat terrain test
         Assert.Equal(6f, result, precision: 1);
     }
+
+    [Fact]
+    public void ComputeTerrainAvoidanceY_MinimumHeight_EnforcesFloorOverWater()
+    {
+        var state = new TerrainAvoidanceState();
+        // Simulate over water: terrain at sea level, missile is low
+        var input = new TerrainAvoidanceLogic.TerrainInput(
+            missileAltitude: 1f,
+            radarAlt: 1f,
+            verticalVelocity: -2f,  // descending
+            speed: 200f,
+            terrainHeightAtLookahead: 0f,  // sea level (water)
+            lookaheadObstructed: false);
+
+        float result = TerrainAvoidanceLogic.ComputeTerrainAvoidanceY(
+            state, input, altitudeTarget: 5f, seaLevelY: 0f, minimumHeight: 3f);
+
+        // Result must be at least seaLevel(0) + minimumHeight(3) = 3
+        Assert.True(result >= 3f, $"Expected at least 3f over water, got {result}");
+    }
+
+    [Fact]
+    public void ComputeTerrainAvoidanceY_MinimumHeight_DoesNotAffectHighAltitude()
+    {
+        var state = new TerrainAvoidanceState();
+        var input = new TerrainAvoidanceLogic.TerrainInput(
+            missileAltitude: 100f,
+            radarAlt: 100f,
+            verticalVelocity: 0f,
+            speed: 200f,
+            terrainHeightAtLookahead: 0f,
+            lookaheadObstructed: false);
+
+        float withMin = TerrainAvoidanceLogic.ComputeTerrainAvoidanceY(
+            state, input, altitudeTarget: 5f, seaLevelY: 0f, minimumHeight: 3f);
+
+        var state2 = new TerrainAvoidanceState();
+        float withoutMin = TerrainAvoidanceLogic.ComputeTerrainAvoidanceY(
+            state2, input, altitudeTarget: 5f, seaLevelY: 0f, minimumHeight: 0f);
+
+        // At high altitude the minimum height should not change the result
+        Assert.Equal(withoutMin, withMin, precision: 1);
+    }
 }

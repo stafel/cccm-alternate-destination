@@ -713,7 +713,8 @@ namespace AlteredDestination
                         data.terrainState,
                         terrainInput,
                         altTarget,
-                        (float)Datum.LocalSeaY);
+                        (float)Datum.LocalSeaY,
+                        AlteredDestinationPlugin.MinimumAltitude.Value);
 
                     AlteredDestinationPlugin.Debug($"Missile waypoint {aimPoint.x} {aimPoint.z} y={aimPoint.y} radarAlt={radarAlt} terrainAhead={terrainHeightAtLookahead}");
                 }

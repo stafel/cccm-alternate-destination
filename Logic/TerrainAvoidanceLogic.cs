@@ -82,12 +82,14 @@ namespace AlteredDestination.Logic
         /// <param name="input">Current frame terrain input parameters.</param>
         /// <param name="altitudeTarget">Desired altitude above terrain.</param>
         /// <param name="seaLevelY">Absolute Y of sea level / datum.</param>
+        /// <param name="minimumHeight">Minimum absolute height floor (e.g. over water). The result will never be below this value.</param>
         /// <returns>The absolute Y value the aimpoint should use.</returns>
         public static float ComputeTerrainAvoidanceY(
             TerrainAvoidanceState state,
             TerrainInput input,
             float altitudeTarget,
-            float seaLevelY)
+            float seaLevelY,
+            float minimumHeight = 0f)
         {
             if (state == null)
             {
@@ -130,7 +132,15 @@ namespace AlteredDestination.Logic
             float minRelativeY = -(altAboveSea - altitudeTarget);
             state.TerrainClearY = Math.Max(state.TerrainClearY, minRelativeY);
 
-            return input.MissileAltitude + state.TerrainClearY;
+            float result = input.MissileAltitude + state.TerrainClearY;
+
+            // Enforce minimum height floor (prevents plunging into water)
+            if (minimumHeight > 0f)
+            {
+                result = Math.Max(result, seaLevelY + minimumHeight);
+            }
+
+            return result;
         }
 
         /// <summary>
