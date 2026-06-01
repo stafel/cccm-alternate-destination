@@ -1,5 +1,6 @@
 using UnityEngine;
 
+#pragma warning disable CS0169, CS0414, CS0649
 public class OpticalSeekerCruiseMissile : MissileSeeker
 {
 	[SerializeField]

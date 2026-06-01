@@ -6,7 +6,7 @@
     <Version>1.4.2</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
-    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+    <NoWarn>$(NoWarn);MSB3277;NU1701;CS0436</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

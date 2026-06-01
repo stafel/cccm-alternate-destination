@@ -280,6 +280,7 @@ namespace AlteredDestination
             }
         }
 
+#pragma warning disable Harmony003
         private static Vector3 WaypointToMapPosition(Waypoint2D waypoint, UnitMapIcon strikerIcon)
         {
             GlobalPosition missileGlobal = strikerIcon.unit.GlobalPosition();
@@ -292,6 +293,7 @@ namespace AlteredDestination
             float dz = (float)(waypoint.Z  * conversionFactorY);
             return new Vector3(dx, dz, 0f);
         }
+#pragma warning restore Harmony003
 
         private static void UpdateLine(UnitMapIcon strikerIcon, WaypointRouteState routeState, float metersToPixels)
         {
